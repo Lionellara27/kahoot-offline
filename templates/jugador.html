@@ -67,7 +67,8 @@
             </div>
             
             <p style="margin-top: 25px; font-size: 16px; color: #00ffaa; font-weight: bold;" id="estado-voto"></p>
-        </div>
+        </div> </div> <div style="margin-top: 25px; margin-bottom: 15px; display: flex; justify-content: center; width: 100%;">
+        <img src="/static/unrn.png" alt="Logo UNRN" style="height: 100px; width: auto; border-radius: 4px; opacity: 0.9;">
     </div>
 
     <script>
@@ -117,6 +118,46 @@
                     
                     activarBotones(true);
                     iniciarCuentaRegresivaPregunta();
+                }
+                // PARTE NUEVA: CAPTURAMOS EL FIN DEL JUEGO EN EL CELULAR/NOTEBOOK de alumno
+                if (datos.evento === "JUEGO_TERMINADO") {
+                    const puntos = datos.puntos;
+                    let contenidoFinal = "";
+                    
+                    if (puntos === 100) {
+                        contenidoFinal = `
+                            <h1 style="color: #4CAF50; font-size: 32px; margin-bottom: 10px;">🏆 ¡JUEGO FINALIZADO! 🏆</h1>
+                            <p style="font-size: 22px; color: #aaa;">Tu puntuación fue de:</p>
+                            <div style="font-size: 50px; font-weight: bold; color: #ffeb3b; margin: 20px 0;">${puntos} pts</div>
+                            <div style="background: #1c351e; border: 2px solid #4CAF50; padding: 20px; border-radius: 12px; margin-top: 20px; color: #e2f0d9; font-weight: bold; line-height: 1.4;">
+                                🎉 ¡FELICIDADES!<br>Acertaste todas las preguntas. 🎉
+                            </div>
+                        `;
+                    } else {
+                        contenidoFinal = `
+                            <h1 style="color: #ff9800; font-size: 32px; margin-bottom: 10px;">🏁 ¡JUEGO FINALIZADO! 🏁</h1>
+                            <p style="font-size: 22px; color: #aaa;">Tu puntuación fue de:</p>
+                            <div style="font-size: 50px; font-weight: bold; color: #ffeb3b; margin: 20px 0;">${puntos} pts</div>
+                            <div style="background: #222; border: 1px solid #444; padding: 20px; border-radius: 12px; margin-top: 20px; color: #ccc; line-height: 1.4;">
+                                ¡Muchas gracias por participar!<br>Y felicidades por las preguntas acertadas. 👏
+                            </div>
+                        `;
+                    }
+                    
+                    // Reemplazamos la interfaz del celu por la tarjeta final + LOGO UNRN ABAJO 
+                    document.body.innerHTML = `
+                        <div style="font-family: Arial, sans-serif; background-color: #222; color: white; padding: 40px 20px; text-align: center; min-height: 100vh; display: flex; flex-direction: column; justify-content: center; align-items: center;">
+                            
+                            <div style="background: #333; border: 2px solid #444; padding: 30px; border-radius: 15px; max-width: 450px; width: 100%; box-shadow: 0px 4px 15px rgba(0,0,0,0.5); margin-bottom: 30px;">
+                                ${contenidoFinal}
+                            </div>
+
+                            <div style="margin-top: 10px; display: flex; justify-content: center;">
+                                <img src="/static/unrn.png" alt="Logo UNRN" style="height: 120px; width: auto; border-radius: 4px;">
+                            </div>
+
+                        </div>
+                    `;
                 }
             };
         }

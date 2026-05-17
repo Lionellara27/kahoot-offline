@@ -76,13 +76,24 @@ class AdministradorJuego:
             return
         
         self.indice_pregunta_actual += 1
-        
-        # CONTROL DE FIN DE JUEGO: Si pasamos la última pregunta (índice 10), el juego termina
+    # CONTROL DE FIN DE JUEGO: Si pasamos la última pregunta (índice 10), el juego termina
         if self.indice_pregunta_actual >= len(self.preguntas):
+            #PRIMERO 1. Avisamos al Host para que muestre el podio definitivo en la TV(osea mostrar pantalla host)
             if self.host_socket:
                 await self.host_socket.send_text(json.dumps({
                     "evento": "JUEGO_TERMINADO"
                 }))
+            
+            #SEGUNDO 2. Recorremos cada celular/notebook conectado y le mandamos su puntaje final personalizado
+            for cliente_ws, nombre in self.conexiones.items():
+                try:
+                    jugador_data = self.ranking.get(nombre, {"puntos": 0})
+                    await cliente_ws.send_text(json.dumps({
+                        "evento": "JUEGO_TERMINADO",
+                        "puntos": jugador_data["puntos"]
+                    }))
+                except:
+                    pass
             return
             
         pregunta = self.preguntas[self.indice_pregunta_actual]
@@ -97,7 +108,7 @@ class AdministradorJuego:
                 "opcion_b": pregunta["opcion_b"],
                 "numero_actual": self.indice_pregunta_actual + 1,
                 "total": len(self.preguntas),
-                "correcta": pregunta["correcta"] # 🔥 Clave: el navegador del host la guarda pero no la muestra todavía
+                "correcta": pregunta["correcta"] 
             }))
 
         # "DIFUNDIMOS" A TODOS los celulares pasándole el texto completo
@@ -155,8 +166,10 @@ class AdministradorJuego:
             "ranking": ranking_limpio
         }))
 
-controlador = AdministradorJuego()
-# --- ENDPOINTS HTTP (Capa de Presentación) ---
+controlador = AdministradorJuego()        
+    
+    
+    # --- ENDPOINTS HTTP (Capa de Presentación) ---
 @app.get("/host")
 def vista_host():
     return HTMLResponse(content=HTML_HOST)
