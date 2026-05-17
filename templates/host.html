@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kahoot Offline - PANTALLA PRINCIPAL</title>
+    <style>
+        body { font-family: Arial, sans-serif; background-color: #111; color: white; padding: 20px; text-align: center; }
+        .contenedor-host { max-width: 900px; margin: 0 auto; }
+        .header-host { display: flex; justify-content: space-between; align-items: center; background: #222; padding: 15px 30px; border-radius: 12px; margin-bottom: 20px; gap: 15px; }
+        .logo-chico { width: 60px; height: auto; border-radius: 5px; }
+        
+        /* ⏳ Estilo del Timer Flotante para el Anfitrión */
+        .timer-host-badge { font-size: 24px; font-weight: bold; color: #ffeb3b; background: #111; padding: 8px 18px; border-radius: 8px; min-width: 90px; border: 1px solid #444; transition: color 0.3s; }
+        
+        /* Panel de Preguntas */
+        .panel-pregunta { background: #1e1e1e; border: 2px solid #444; padding: 25px; border-radius: 15px; margin-bottom: 25px; }
+        .enunciado { font-size: 28px; font-weight: bold; margin-bottom: 20px; color: #ffeb3b; }
+        .opciones-container { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
+        .opcion-caja { padding: 15px; font-size: 20px; font-weight: bold; border-radius: 8px; color: white; text-align: left; }
+        .red { background-color: #e21b3c; }
+        .blue { background-color: #1368ce; }
+        .panel-correcta { margin-top: 15px; font-size: 22px; color: #4CAF50; font-weight: bold; background: #1c351e; padding: 10px; border-radius: 8px; display: none; }
+
+        /* Tabla de Clasificación */
+        .tabla-ranking { width: 100%; border-collapse: collapse; margin-top: 15px; background: #222; border-radius: 10px; overflow: hidden; }
+        .tabla-ranking th, .tabla-ranking td { padding: 12px 15px; text-align: center; font-size: 18px; }
+        .tabla-ranking th { background-color: #333; color: #00fa9a; }
+        .tabla-ranking tr:nth-child(even) { background-color: #2a2a2a; }
+        .tabla-ranking tr:hover { background-color: #353535; }
+        .oro { color: #ffd700; font-weight: bold; }
+
+        .btn-control { background-color: #ff9800; color: black; padding: 12px 25px; font-size: 18px; font-weight: bold; border: none; border-radius: 8px; cursor: pointer; transition: background-color 0.2s; }
+        .btn-control:hover { background-color: #e68a00; }
+    </style>
+</head>
+<body>
+
+    <div class="contenedor-host">
+        <div class="header-host">
+            <img src="/static/logo.jpg" alt="Logo" class="logo-chico">
+            <h2>🖥️ PANEL DEL ANFITRIÓN - CET N°11</h2>
+            
+            <div id="timer-host" class="timer-host-badge">⏱️ 10s</div>
+            
+            <button class="btn-control" onclick="siguientePregunta()">Siguiente Pregunta ➡️</button>
+        </div>
+
+        <div class="panel-pregunta">
+            <div id="pregunta-texto" class="enunciado">Presioná "Siguiente Pregunta" para lanzar la trivia...</div>
+            <div class="opciones-container">
+                <div id="opcion-a-texto" class="opcion-caja red">▲ Opción A</div>
+                <div id="opcion-b-texto" class="opcion-caja blue">■ Opción B</div>
+            </div>
+            <div id="respuesta-correcta-box" class="panel-correcta">
+                ✅ RESPUESTA CORRECTA: <span id="letra-correcta"></span>
+            </div>
+        </div>
+
+        <h3>🏆 TABLA DE POSICIONES (RANKING DE MAYOR A MENOR)</h3>
+        <table class="tabla-ranking">
+            <thead>
+                <tr>
+                    <th style="width: 10%">Puesto</th>
+                    <th style="width: 50%">Alumno</th>
+                    <th style="width: 20%">Puntaje</th>
+                    <th style="width: 20%">Tiempo Usado (s)</th>
+                </tr>
+            </thead>
+            <tbody id="cuerpo-tabla">
+                <tr>
+                    <td colspan="4" style="color: #aaa;">Esperando que se unan los chicos...</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+
+    <script>
+        const ws = new WebSocket(`ws://${window.location.host}/ws/host`);
+        let temporizadorHost;
+        let tiempoRestanteHost = 10;
+        
+        ws.onmessage = (event) => {
+            const datos = JSON.parse(event.data);
+            
+            // 1. Cuando el backend nos manda una nueva pregunta
+            if (datos.evento === "MOSTRAR_PREGUNTA") {
+                document.getElementById("pregunta-texto").innerText = datos.enunciado;
+                document.getElementById("opcion-a-texto").innerText = `▲ A: ${datos.opcion_a}`;
+                document.getElementById("opcion-b-texto").innerText = `■ B: ${datos.opcion_b}`;
+                document.getElementById("respuesta-correcta-box").style.display = "none";
+                
+                // ⏱️ Sincronizar y arrancar el reloj del Host de 10 a 0 segundos
+                clearInterval(temporizadorHost);
+                tiempoRestanteHost = 10;
+                const displayHost = document.getElementById("timer-host");
+                displayHost.innerText = `⏳ ${tiempoRestanteHost}s`;
+                displayHost.style.color = "#ffeb3b";
+                
+                temporizadorHost = setInterval(() => {
+                    tiempoRestanteHost--;
+                    if (tiempoRestanteHost <= 0) {
+                        clearInterval(temporizadorHost);
+                        displayHost.innerText = "⏰ ¡FIN!";
+                        displayHost.style.color = "#ff5555";
+                    } else {
+                        displayHost.innerText = `⏳ ${tiempoRestanteHost}s`;
+                        if (tiempoRestanteHost <= 3) {
+                            displayHost.style.color = "#ff3333"; // Se pone rojo crítico los últimos 3 segundos
+                        }
+                    }
+                }, 1000);
+            }
+            
+            // 2. Cuando el backend actualiza los puntos y el desempate por tiempo
+            if (datos.evento === "ACTUALIZAR_RANKING") {
+                const tbody = document.getElementById("cuerpo-tabla");
+                tbody.innerHTML = ""; // Limpiamos la tabla anterior
+                
+                datos.ranking.forEach((jugador, indice) => {
+                    let medalla = indice + 1;
+                    if (medalla === 1) medalla = "🥇";
+                    if (medalla === 2) medalla = "🥈";
+                    if (medalla === 3) medalla = "🥉";
+                    
+                    tbody.innerHTML += `
+                        <tr class="${indice === 0 ? 'oro' : ''}">
+                            <td>${medalla}</td>
+                            <td><b>${jugador.nombre}</b></td>
+                            <td><span style="color: #00ff00">${jugador.puntos}</span> pts</td>
+                            <td>${jugador.tiempo.toFixed(2)}s</td>
+                        </tr>
+                    `;
+                });
+            }
+            
+            // 3. Revelar respuesta correcta
+            if (datos.evento === "REVELAR_RESPUESTA") {
+                document.getElementById("letra-correcta").innerText = datos.correcta;
+                document.getElementById("respuesta-correcta-box").style.display = "block";
+            }
+        };
+
+        function siguientePregunta() {
+            // Le avisamos al backend por el WebSocket que queremos cambiar de pregunta
+            ws.send(JSON.stringify({ "accion": "SIGUIENTE_PREGUNTA" }));
+        }
+    </script>
+</body>
+</html>

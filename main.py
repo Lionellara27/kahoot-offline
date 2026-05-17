@@ -1,137 +1,161 @@
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Query
 from fastapi.responses import HTMLResponse
+from fastapi.staticfiles import StaticFiles
 import json
+import time  # Reloj de alta precisión para medir los tiempos de respuesta de los chicos
 
-# Importamos las funciones de nuestro nuevo archivo de base de datos
 from database import inicializar_db, obtener_todas_las_preguntas
 
 app = FastAPI()
 
-# Inicializamos la base de datos local al arrancar el servidor
+# 1. Inicializamos la base de datos relacional (SQLite)
 inicializar_db()
 
-# --- GESTOR DE CONEXIONES (El Corazón de la Red) ---
+# 2. Montamos la carpeta de recursos estáticos (para servir el logo del CET N°11)
+app.mount("/static", StaticFiles(directory="static"), name="static")
+
+# 3. Cargamos los frontend limpios desde sus archivos HTML independientes
+with open("templates/jugador.html", "r", encoding="utf-8") as f:
+    HTML_PLAYER = f.read()
+
+with open("templates/host.html", "r", encoding="utf-8") as f:
+    HTML_HOST = f.read()
+
+
+# --- GESTOR DE CONEXIONES Y LÓGICA CENTRAL DEL JUEGO (PERSISTENTE) ---
 class AdministradorJuego:
     def __init__(self):
-        self.host_socket: WebSocket = None  # Guardamos la conexión de la notebook
-        self.jugadores_activos = {}         # Diccionario de {websocket: nombre_jugador}
+        self.host_socket: WebSocket = None
+        # 🔌 Diccionario volátil: mapea solo conexiones web activas { websocket: "Nombre" }
+        self.conexiones = {}       
+        # 🏆 Diccionario persistente: retiene puntajes { "Nombre": {"puntos": int, "tiempo_total": float} }
+        self.ranking = {}          
+        
+        self.preguntas = obtener_todas_las_preguntas()
+        self.indice_pregunta_actual = -1
+        self.tiempo_inicio_pregunta = 0.0
 
     async def conectar_host(self, websocket: WebSocket):
         await websocket.accept()
         self.host_socket = websocket
         print("🖥️ ¡Pantalla Principal (Host) conectada con éxito!")
+        await self.enviar_ranking_actualizado()
 
-    async def conectar_jugador(self, websocket: WebSocket):
+    async def conectar_jugador(self, websocket: WebSocket, nombre: str):
         await websocket.accept()
-        # Le asignamos un nombre provisorio por ahora basado en su puerto
-        nombre = f"Jugador_{websocket.client.port}"
-        self.jugadores_activos[websocket] = nombre
-        print(f"📱 {nombre} se ha unido al juego.")
+        # Registramos la nueva conexión física del celular
+        self.conexiones[websocket] = nombre
         
-        # Le avisamos al Host que entró alguien nuevo si el Host está conectado
+        # 🔥 CONTROL DE PERSISTENCIA:
+        # Si el alumno es nuevo, le creamos el perfil desde cero.
+        if nombre not in self.ranking:
+            self.ranking[nombre] = {
+                "puntos": 0,
+                "tiempo_total": 0.0
+            }
+            print(f"📱 El alumno '{nombre}' se ha unido por primera vez.")
+        else:
+            # Si ya existía en el ranking, conserva sus puntos intactos!
+            print(f"🔄 ¡Reconexión detectada! El alumno '{nombre}' recuperó su sesión y sus puntos.")
+            
+        await self.enviar_ranking_actualizado()
+
+    async def desconectar_jugador(self, websocket: WebSocket):
+        if websocket in self.conexiones:
+            nombre = self.conexiones[websocket]
+            # Borramos únicamente el WebSocket físico del listado de antenas activas
+            del self.conexiones[websocket] 
+            print(f"⚠️ '{nombre}' cerró el celu o perdió señal temporalmente. Sus puntos quedan guardados.")
+            
+            # ⛔ CRÍTICO: NO borramos nada de self.ranking. 
+            # El alumno se mantiene visible en la TV con sus puntos intactos.
+            await self.enviar_ranking_actualizado()
+    async def avanzar_pregunta(self):
+        if not self.preguntas:
+            print("⚠️ No hay preguntas cargadas en la base de datos.")
+            return
+        
+        self.indice_pregunta_actual += 1
+        if self.indice_pregunta_actual >= len(self.preguntas):
+            self.indice_pregunta_actual = 0
+            
+        pregunta = self.preguntas[self.indice_pregunta_actual]
+        self.tiempo_inicio_pregunta = time.time() 
+        
         if self.host_socket:
             await self.host_socket.send_text(json.dumps({
-                "evento": "NUEVO_JUGADOR",
-                "jugador": nombre
+                "evento": "MOSTRAR_PREGUNTA",
+                "enunciado": pregunta["enunciado"],
+                "opcion_a": pregunta["opcion_a"],
+                "opcion_b": pregunta["opcion_b"]
             }))
 
-    def desconectar_jugador(self, websocket: WebSocket):
-        if websocket in self.jugadores_activos:
-            nombre = self.jugadores_activos[websocket]
-            del self.jugadores_activos[websocket]
-            print(f"❌ {nombre} abandonó la partida.")
+        # 🔥 ACTUALIZADO: Ahora le mandamos todo el contenido a los celulares
+        for cliente_ws in self.conexiones.keys():
+            try:
+                await cliente_ws.send_text(json.dumps({
+                    "evento": "NUEVA_PREGUNTA",
+                    "enunciado": pregunta["enunciado"],
+                    "opcion_a": pregunta["opcion_a"],
+                    "opcion_b": pregunta["opcion_b"]
+                }))
+            except:
+                pass
 
-    async def enviar_voto_al_host(self, opcion_elegida: str, websocket: WebSocket):
-        nombre = self.jugadores_activos.get(websocket, "Anónimo")
-        if self.host_socket:
-            # Le mandamos el voto masticado en JSON a la pantalla principal
-            await self.host_socket.send_text(json.dumps({
-                "evento": "VOTO",
-                "jugador": nombre,
-                "opcion": opcion_elegida
-            }))
-
-controlador = AdministradorJuego()
-
-# --- VISTAS HTML (Interfaces de prueba) ---
-
-HTML_HOST = """
-<!DOCTYPE html>
-<html>
-<head>
-    <title>Kahoot Offline - PANTALLA PRINCIPAL</title>
-    <style>
-        body { font-family: Arial, sans-serif; background-color: #111; color: white; padding: 30px; text-align: center; }
-        #lista-jugadores { display: flex; justify-content: center; gap: 15px; font-size: 20px; color: #00fa9a; }
-        #consola-votos { margin-top: 30px; padding: 20px; background: #222; border-radius: 10px; height: 200px; overflow-y: auto; text-align: left; }
-    </style>
-</head>
-<body>
-    <h1>🖥️ PANTALLA PRINCIPAL (Notebook / TV)</h1>
-    <h2>Jugadores en la sala:</h2>
-    <div id="lista-jugadores">Esperando jugadores...</div>
-    
-    <h3>📥 Registro de Respuestas en Tiempo Real:</h3>
-    <div id="consola-votos"></div>
-
-    <script>
-        const ws = new WebSocket(`ws://${window.location.host}/ws/host`);
-        const lista = document.getElementById("lista-jugadores");
-        const consola = document.getElementById("consola-votos");
-        let jugadores = [];
-
-        ws.onmessage = (event) => {
-            const datos = JSON.parse(event.data);
+    async def procesar_voto(self, opcion_elegida: str, websocket: WebSocket):
+        if websocket not in self.conexiones or self.indice_pregunta_actual == -1:
+            return
             
-            if (datos.evento === "NUEVO_JUGADOR") {
-                jugadores.push(datos.jugador);
-                lista.innerHTML = jugadores.map(j => `<span>👤 ${j}</span>`).join(" | ");
-            }
-            
-            if (datos.evento === "VOTO") {
-                consola.innerHTML += `<p style="color: #ffeb3b">📩 <b>${datos.jugador}</b> respondió la opción: <b>${datos.opcion}</b></p>`;
-            }
-        };
-    </script>
-</body>
-</html>
-"""
-
-HTML_PLAYER = """
-<!DOCTYPE html>
-<html>
-<head>
-    <title>Kahoot Offline - CONTROL</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <style>
-        body { font-family: Arial, sans-serif; text-align: center; background-color: #222; color: white; padding: 20px; }
-        .grid-botones { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-top: 40px; }
-        .btn { padding: 40px 20px; font-size: 24px; font-weight: bold; border: none; border-radius: 12px; color: white; cursor: pointer; }
-        .red { background-color: #e21b3c; }
-        .blue { background-color: #1368ce; }
-    </style>
-</head>
-<body>
-    <h2>🎮 Tu Control</h2>
-    <p>Elegí la opción correcta rápido:</p>
-    
-    <div class="grid-botones">
-        <button class="btn red" onclick="enviarVoto('A')">▲ A</button>
-        <button class="btn blue" onclick="enviarVoto('B')">■ B</button>
-    </div>
-
-    <script>
-        const ws = new WebSocket(`ws://${window.location.host}/ws/jugador`);
+        tiempo_respuesta = time.time() - self.tiempo_inicio_pregunta
+        pregunta = self.preguntas[self.indice_pregunta_actual]
         
-        function enviarVoto(opcion) {
-            ws.send(opcion);
-        }
-    </script>
-</body>
-</html>
-"""
+        # Obtenemos el nombre asignado a este WebSocket y buscamos su perfil persistente
+        nombre = self.conexiones[websocket]
+        jugador = self.ranking[nombre]
 
-# --- ENDPOINTS HTTP ---
+        if opcion_elegida == pregunta["correcta"]:
+            jugador["puntos"] += 10  
+            jugador["tiempo_total"] += tiempo_respuesta  
+        else:
+            jugador["tiempo_total"] += 10.0 
+
+        if self.host_socket:
+            await self.host_socket.send_text(json.dumps({
+                "evento": "REVELAR_RESPUESTA",
+                "correcta": pregunta["correcta"]
+            }))
+
+        await self.enviar_ranking_actualizado()
+
+    async def enviar_ranking_actualizado(self):
+        if not self.host_socket:
+            return
+            
+        # Reconstruimos la lista para ordenar basándonos en el ranking persistente
+        lista_ranking = []
+        for nombre, datos in self.ranking.items():
+            lista_ranking.append({
+                "nombre": nombre,
+                "puntos": datos["puntos"],
+                "tiempo_total": datos["tiempo_total"]
+            })
+        
+        # Algoritmo de desempate por tiempo
+        lista_ranking.sort(key=lambda x: (x["puntos"], -x["tiempo_total"]), reverse=True)
+        
+        ranking_limpio = [
+            {"nombre": j["nombre"], "puntos": j["puntos"], "tiempo": j["tiempo_total"]}
+            for j in lista_ranking
+        ]
+        
+        await self.host_socket.send_text(json.dumps({
+            "evento": "ACTUALIZAR_RANKING",
+            "ranking": ranking_limpio
+        }))
+
+controlador = AdministradorJuego()        
+
+# --- ENDPOINTS HTTP (Capa de Presentación) ---
 @app.get("/host")
 def vista_host():
     return HTMLResponse(content=HTML_HOST)
@@ -140,23 +164,29 @@ def vista_host():
 def vista_jugador():
     return HTMLResponse(content=HTML_PLAYER)
 
-# --- ENDPOINTS WEBSOCKETS ---
+
+# --- ENDPOINTS WEBSOCKETS (Capa de Comunicación Asíncrona) ---
 @app.websocket("/ws/host")
 async def ws_host(websocket: WebSocket):
     await controlador.conectar_host(websocket)
     try:
         while True:
-            await websocket.receive_text()  # Mantenemos el canal abierto
+            msg = await websocket.receive_text()
+            datos = json.loads(msg)
+            # Escuchamos si el anfitrión hace clic en el botón de pasar de pregunta
+            if datos.get("accion") == "SIGUIENTE_PREGUNTA":
+                await controlador.avanzar_pregunta()
     except WebSocketDisconnect:
         controlador.host_socket = None
-        print("🖥️ El Host se desconectó.")
+        print("🖥️ La Pantalla Principal (Host) se ha desconectado.")
 
 @app.websocket("/ws/jugador")
-async def ws_jugador(websocket: WebSocket):
-    await controlador.conectar_jugador(websocket)
+async def ws_jugador(websocket: WebSocket, nombre: str = Query(...)):
+    # Capturamos el parámetro 'nombre' enviado por el alumno desde el formulario de bienvenida
+    await controlador.conectar_jugador(websocket, nombre)
     try:
         while True:
             opcion = await websocket.receive_text()
-            await controlador.enviar_voto_al_host(opcion, websocket)
+            await controlador.procesar_voto(opcion, websocket)
     except WebSocketDisconnect:
-        controlador.desconectar_jugador(websocket)
+        await controlador.desconectar_jugador(websocket)
