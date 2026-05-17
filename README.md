@@ -21,8 +21,9 @@ Un clon de Kahoot diseñado para funcionar en entornos **completamente offline**
 Crear la red local: Activa la "Zona con cobertura inalámbrica" (Hotspot) de tu notebook o asegúrate de que todos los dispositivos estén conectados a la misma red Wi-Fi.
 
 Iniciar el servidor: Corre el siguiente comando en la raíz del proyecto para levantar Uvicorn escuchando en toda la red local:
-   ``bash
+   ```bash
    python -m uvicorn main:app --reload --host 0.0.0.0
+   ```
 Averiguar la IP local: Abre otra terminal y ejecuta **ipconfig** para conocer tu dirección IPv4 local (ejemplo: 192.168.1.4).
 
 🎮 Acceso a las Pantallas
@@ -31,12 +32,12 @@ El sistema cuenta con dos interfaces diferenciadas según el rol:
 1. 🖥️ Vista del Anfitrión (Host)
 Es la pantalla principal que se proyecta en la TV, notebook o proyector. Muestra las preguntas, el tiempo y el ranking.
 
-URL Local: http://localhost:8000/host
+URL Local: http://localhost:8000/host -> ej:http://10.34.51.173:8000/host (anfitrion)
 
 2. 📱 Vista del Jugador (Cliente)
 Es la interfaz optimizada para celulares que actúa como control remoto para responder la trivia.
 
-URL desde la Red LAN: http://<TU_IP_LOCAL>:8000 (Ejemplo: http://192.168.X.X:8000)
+URL desde la Red LAN: http://<TU_IP_LOCAL>:8000 (Ejemplo: http://192.168.X.X:8000) -> ej:http://10.34.51.173:8000 (chicos)
 
 📌 Estado Actual del Proyecto
 
