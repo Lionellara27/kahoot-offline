@@ -21,10 +21,9 @@ Un clon de Kahoot diseñado para funcionar en entornos **completamente offline**
 Crear la red local: Activa la "Zona con cobertura inalámbrica" (Hotspot) de tu notebook o asegúrate de que todos los dispositivos estén conectados a la misma red Wi-Fi.
 
 Iniciar el servidor: Corre el siguiente comando en la raíz del proyecto para levantar Uvicorn escuchando en toda la red local:
-
-Bash
-python -m uvicorn main:app --reload --host 0.0.0.0
-Averiguar la IP local: Abre otra terminal y ejecuta ipconfig para conocer tu dirección IPv4 local (ejemplo: 192.168.1.4).
+   ```bash
+   python -m uvicorn main:app --reload --host 0.0.0.0
+Averiguar la IP local: Abre otra terminal y ejecuta **ipconfig** para conocer tu dirección IPv4 local (ejemplo: 192.168.1.4).
 
 🎮 Acceso a las Pantallas
 El sistema cuenta con dos interfaces diferenciadas según el rol:
@@ -41,6 +40,9 @@ URL desde la Red LAN: http://<TU_IP_LOCAL>:8000 (Ejemplo: http://192.168.X.X:800
 
 📌 Estado Actual del Proyecto
 [x] Fase 1: Infraestructura de red local (LAN) y comunicación HTTP.
+
 [x] Fase 2: Arquitectura en tiempo real con WebSockets para envío de respuestas.
+
 [x] Fase 3: Persistencia local de datos con SQLite3 y carga de preguntas semilla.
-[ ] Fase 4: Lógica de juego (Sincronización de turnos, contador de tiempo y puntajes).
+
+[x] Fase 4: Lógica de juego (Sincronización de turnos, contador de tiempo y puntajes).
