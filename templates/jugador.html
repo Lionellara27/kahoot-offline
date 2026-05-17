@@ -12,20 +12,20 @@
         .btn-accion { background-color: #4CAF50; color: white; padding: 12px 30px; font-size: 18px; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; }
         .btn-accion:active { background-color: #3e8e41; }
         
-        /* BOTONES ROJO | AZUL (Lado a lado en Grid Horizontal) */
         .grid-botones { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-top: 20px; }
         .btn-voto { padding: 45px 12px; font-size: 16px; font-weight: bold; border: none; border-radius: 12px; color: white; cursor: pointer; transition: all 0.2s; text-align: center; display: flex; align-items: center; justify-content: center; line-height: 1.3; }
         .btn-voto:disabled { cursor: not-allowed; transform: scale(0.98); }
         .red { background-color: #e21b3c; }
         .blue { background-color: #1368ce; }
         
-        /* CAJA DE PREGUNTA EN EL CELULAR */
         .pregunta-en-celu { font-size: 16px; background-color: #1e1e1e; padding: 15px; border-radius: 10px; border: 1px solid #555; margin-bottom: 10px; text-align: left; line-height: 1.4; box-shadow: inset 0 2px 5px rgba(0,0,0,0.3); }
         .tag-pregunta { color: #ff9800; font-weight: bold; display: block; margin-bottom: 5px; font-size: 14px; letter-spacing: 1px; }
 
         .oculto { display: none; }
         .destacado { color: #ffeb3b; font-weight: bold; }
         .contador { font-size: 32px; color: #ff5722; font-weight: bold; margin-top: 10px; }
+        .espera-animada { color: #00ffaa; font-size: 18px; margin-top: 20px; font-weight: bold; animation: parpadeo 1.5s infinite; }
+        @keyframes parpadeo { 0% { opacity: 0.3; } 50% { opacity: 1; } 100% { opacity: 0.3; } }
     </style>
 </head>
 <body>
@@ -33,8 +33,8 @@
     <div class="contenedor-pantalla">
         <div id="pantalla-login">
             <img src="/static/logo.jpg" alt="Logo ESFA" class="logo">
-            <h2>👋 ¡LES DAMOS LA BIENVENIDA C.E.T. N° 11!</h2>
-            <p>Para comenzar a jugar introduzca su nombre/apodo:</p>
+            <h2>👋 ¡LES DAMOS LA BIENVENIDA, C.E.T. N° 11!</h2>
+            <p>Escribí tu nombre o apodo para comenzar a jugar:</p>
             <input type="text" id="input-nombre" placeholder="Tu nombre acá..." autocomplete="off">
             <br>
             <button class="btn-accion" onclick="procesarIngreso()">Unirse al Juego</button>
@@ -42,23 +42,20 @@
 
         <div id="pantalla-espera" class="oculto">
             <img src="/static/logo.jpg" alt="Logo ESFA" class="logo">
-            <h2>¡Excelente, <span id="nombre-usuario" class="destacado"></span>! ¿Todo listo para jugar y repasar lo aprendido?</h2>
-            <p>💡 Vas a tener algunas preguntas y cada opción correcta te va a sumar puntos!</p>
+            <h2>¡Excelente, <span id="nombre-usuario" class="destacado"></span>!<br>¿Todo listo para jugar y repasar lo aprendido?</h2>
+            <p>💡 Vas a tener algunas preguntas y cada opción correcta te va a sumar puntos.</p>
             <p class="destacado">⚠️ ¡Tenés solo 15 segundos para responder cada una!</p>
             <hr style="border-color: #444; margin: 20px 0;">
-            <button class="btn-accion" style="background-color: #008CBA;" onclick="comenzarYa()">¡Comenzar Ya!</button>
-            <p style="margin-top: 20px; color: #aaa;">El juego comenzará solo en:</p>
-            <div id="tiempo-regresivo" class="contador">15</div>
+            <div class="espera-animada">⏳ Esperando a que inicie la partida...</div>
         </div>
 
         <div id="pantalla-juego" class="oculto">
             <h2>🎮 Tu Control</h2>
-            
-            <div id="timer-pregunta" class="contador" style="color: #ffeb3b; font-size: 46px; margin-top: 5px; margin-bottom: 15px;">10</div>
+            <div id="timer-pregunta" class="contador" style="color: #ffeb3b; font-size: 46px; margin-top: 5px; margin-bottom: 15px;">15</div>
             
             <div class="pregunta-en-celu">
                 <span class="tag-pregunta">📋 PREGUNTA:</span>
-                <span id="texto-pregunta-celu">Esperando a que envíen la primera pregunta...</span>
+                <span id="texto-pregunta-celu"></span>
             </div>
             
             <div class="grid-botones">
@@ -67,18 +64,19 @@
             </div>
             
             <p style="margin-top: 25px; font-size: 16px; color: #00ffaa; font-weight: bold;" id="estado-voto"></p>
-        </div> </div> <div style="margin-top: 25px; margin-bottom: 15px; display: flex; justify-content: center; width: 100%;">
+        </div> 
+    </div> 
+    
+    <div style="margin-top: 25px; margin-bottom: 15px; display: flex; justify-content: center; width: 100%;">
         <img src="/static/unrn.png" alt="Logo UNRN" style="height: 100px; width: auto; border-radius: 4px; opacity: 0.9;">
     </div>
 
     <script>
         let ws;
         let nombreJugador = "";
-        let temporizadorLobby;
-        let tiempoRestanteLobby = 15;
-        
         let temporizadorPregunta;
         let tiempoRestantePregunta = 15;
+        let miVoto = ""; 
 
         function procesarIngreso() {
             const input = document.getElementById("input-nombre");
@@ -95,17 +93,16 @@
                 document.getElementById("pantalla-login").classList.add("oculto");
                 document.getElementById("nombre-usuario").innerText = nombreJugador;
                 document.getElementById("pantalla-espera").classList.remove("oculto");
-                iniciarCuentaRegresivaLobby();
             };
 
             ws.onmessage = (event) => {
                 const datos = JSON.parse(event.data);
                 
                 if (datos.evento === "NUEVA_PREGUNTA") {
+                    miVoto = "";
                     document.getElementById("pantalla-espera").classList.add("oculto");
                     document.getElementById("pantalla-juego").classList.remove("oculto");
                     
-                    // Inyectamos dinámicamente la pregunta y los textos en los botones horizontales
                     document.getElementById("texto-pregunta-celu").innerText = datos.enunciado;
                     document.getElementById("btn-a").innerText = `▲ A: ${datos.opcion_a}`;
                     document.getElementById("btn-b").innerText = `■ B: ${datos.opcion_b}`;
@@ -119,64 +116,41 @@
                     activarBotones(true);
                     iniciarCuentaRegresivaPregunta();
                 }
-                // PARTE NUEVA: CAPTURAMOS EL FIN DEL JUEGO EN EL CELULAR/NOTEBOOK de alumno
-                if (datos.evento === "JUEGO_TERMINADO") {
-                    const puntos = datos.puntos;
-                    let contenidoFinal = "";
+                
+                if (datos.evento === "REVELAR_CORRECTA") {
+                    clearInterval(temporizadorPregunta);
+                    activarBotones(false);
+                    const divEstado = document.getElementById("estado-voto");
                     
-                    if (puntos === 100) {
-                        contenidoFinal = `
-                            <h1 style="color: #4CAF50; font-size: 32px; margin-bottom: 10px;">🏆 ¡JUEGO FINALIZADO! 🏆</h1>
-                            <p style="font-size: 22px; color: #aaa;">Tu puntuación fue de:</p>
-                            <div style="font-size: 50px; font-weight: bold; color: #ffeb3b; margin: 20px 0;">${puntos} pts</div>
-                            <div style="background: #1c351e; border: 2px solid #4CAF50; padding: 20px; border-radius: 12px; margin-top: 20px; color: #e2f0d9; font-weight: bold; line-height: 1.4;">
-                                🎉 ¡FELICIDADES!<br>Acertaste todas las preguntas. 🎉
-                            </div>
-                        `;
+                    if (miVoto === "") {
+                        divEstado.innerHTML = `⏰ ¡TIEMPO AGOTADO!<br><span style="color:#aaa; font-size:14px;">No llegaste a responder. La correcta era la ${datos.correcta}</span>`;
+                        divEstado.style.color = "#ff5555";
+                    } else if (miVoto === datos.correcta) {
+                        divEstado.innerText = "✅ ¡CORRECTO! +10 pts";
+                        divEstado.style.color = "#4CAF50";
                     } else {
-                        contenidoFinal = `
-                            <h1 style="color: #ff9800; font-size: 32px; margin-bottom: 10px;">🏁 ¡JUEGO FINALIZADO! 🏁</h1>
-                            <p style="font-size: 22px; color: #aaa;">Tu puntuación fue de:</p>
-                            <div style="font-size: 50px; font-weight: bold; color: #ffeb3b; margin: 20px 0;">${puntos} pts</div>
-                            <div style="background: #222; border: 1px solid #444; padding: 20px; border-radius: 12px; margin-top: 20px; color: #ccc; line-height: 1.4;">
-                                ¡Muchas gracias por participar!<br>Y felicidades por las preguntas acertadas. 👏
-                            </div>
-                        `;
+                        divEstado.innerHTML = `❌ INCORRECTO<br><span style="color:#aaa; font-size:14px;">La correcta era la ${datos.correcta}</span>`;
+                        divEstado.style.color = "#ff5555";
                     }
-                    
-                    // Reemplazamos la interfaz del celu por la tarjeta final + LOGO UNRN ABAJO 
+                }
+                
+                if (datos.evento === "JUEGO_TERMINADO") {
+                    const puntos = datos.puntos || 0; // Previene errores si no hay puntos
                     document.body.innerHTML = `
                         <div style="font-family: Arial, sans-serif; background-color: #222; color: white; padding: 40px 20px; text-align: center; min-height: 100vh; display: flex; flex-direction: column; justify-content: center; align-items: center;">
-                            
                             <div style="background: #333; border: 2px solid #444; padding: 30px; border-radius: 15px; max-width: 450px; width: 100%; box-shadow: 0px 4px 15px rgba(0,0,0,0.5); margin-bottom: 30px;">
-                                ${contenidoFinal}
+                                <h1 style="color: #ff9800; font-size: 32px; margin-bottom: 10px;">🏁 ¡JUEGO FINALIZADO! 🏁</h1>
+                                <div style="background: #222; border: 1px solid #444; padding: 20px; border-radius: 12px; margin-top: 20px; color: #ccc; line-height: 1.4;">
+                                    ¡Muchas gracias por participar!<br>Mirá la pantalla para ver el podio. 👏
+                                </div>
                             </div>
-
                             <div style="margin-top: 10px; display: flex; justify-content: center;">
                                 <img src="/static/unrn.png" alt="Logo UNRN" style="height: 120px; width: auto; border-radius: 4px;">
                             </div>
-
                         </div>
                     `;
                 }
             };
-        }
-
-        function iniciarCuentaRegresivaLobby() {
-            const display = document.getElementById("tiempo-regresivo");
-            temporizadorLobby = setInterval(() => {
-                tiempoRestanteLobby--;
-                display.innerText = tiempoRestanteLobby;
-                if (tiempoRestanteLobby <= 0) {
-                    comenzarYa();
-                }
-            }, 1000);
-        }
-
-        function comenzarYa() {
-            clearInterval(temporizadorLobby);
-            document.getElementById("pantalla-espera").classList.add("oculto");
-            document.getElementById("pantalla-juego").classList.remove("oculto");
         }
 
         function iniciarCuentaRegresivaPregunta() {
@@ -184,14 +158,12 @@
             temporizadorPregunta = setInterval(() => {
                 tiempoRestantePregunta--;
                 display.innerText = tiempoRestantePregunta;
-                
                 if (tiempoRestantePregunta <= 4) display.style.color = "#ff3333";
-
                 if (tiempoRestantePregunta <= 0) {
                     clearInterval(temporizadorPregunta);
                     activarBotones(false);
-                    document.getElementById("estado-voto").innerText = "⏰ ¡TIEMPO AGOTADO! (0 pts). Mirá la TV...";
-                    document.getElementById("estado-voto").style.color = "#ff5555";
+                    document.getElementById("estado-voto").innerText = "⏳ Procesando resultados...";
+                    document.getElementById("estado-voto").style.color = "#ffeb3b";
                 }
             }, 1000);
         }
@@ -207,10 +179,11 @@
 
         function enviarVoto(opcion) {
             if (ws && ws.readyState === WebSocket.OPEN) {
+                miVoto = opcion; 
                 ws.send(opcion);
                 clearInterval(temporizadorPregunta);
                 activarBotones(false);
-                document.getElementById("estado-voto").innerText = `📥 Enviaste la opción ${opcion}. ¡Esperá a que pasen de pregunta!`;
+                document.getElementById("estado-voto").innerText = `📥 Enviaste la opción ${opcion}. ¡Esperá el resultado!`;
                 document.getElementById("estado-voto").style.color = "#00ffaa";
             }
         }

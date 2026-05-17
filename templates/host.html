@@ -3,25 +3,30 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Kahoot Offline - PANTALLA PRINCIPAL</title>
+    <title>Kahoot Offline - ESFA</title>
     <style>
         body { font-family: Arial, sans-serif; background-color: #111; color: white; padding: 20px; text-align: center; }
         .contenedor-host { max-width: 900px; margin: 0 auto; }
         .header-host { display: flex; justify-content: space-between; align-items: center; background: #222; padding: 15px 30px; border-radius: 12px; margin-bottom: 20px; gap: 15px; }
         
-        /* Estilo del Reloj Timer Flotante para el Anfitrión */
         .timer-host-badge { font-size: 24px; font-weight: bold; color: #ffeb3b; background: #111; padding: 8px 18px; border-radius: 8px; min-width: 90px; border: 1px solid #444; transition: color 0.3s; }
         
-        /* Panel de Preguntas */
         .panel-pregunta { background: #1e1e1e; border: 2px solid #444; padding: 25px; border-radius: 15px; margin-bottom: 25px; }
         .enunciado { font-size: 28px; font-weight: bold; margin-bottom: 20px; color: #ffeb3b; }
         .opciones-container { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
         .opcion-caja { padding: 15px; font-size: 20px; font-weight: bold; border-radius: 8px; color: white; text-align: left; }
         .red { background-color: #e21b3c; }
         .blue { background-color: #1368ce; }
+        
         .panel-correcta { margin-top: 15px; font-size: 22px; color: #4CAF50; font-weight: bold; background: #1c351e; padding: 10px; border-radius: 8px; display: none; }
+        
+        .caja-didactica { display: none; margin-top: 20px; text-align: left; animation: fadeIn 0.5s ease-in; }
+        .texto-justificacion { font-size: 20px; color: #fff; background: #2a2a2a; padding: 15px; border-radius: 8px; border-left: 5px solid #ff9800; line-height: 1.4; margin-bottom: 15px; }
+        
+        .barra-estadisticas { width: 100%; height: 35px; background: #333; border-radius: 8px; display: flex; overflow: hidden; border: 2px solid #555; }
+        .barra-ok { background: #4CAF50; height: 100%; display: flex; align-items: center; justify-content: center; font-weight: bold; transition: width 0.8s ease-in-out; width: 0%; color: white; text-shadow: 1px 1px 2px rgba(0,0,0,0.8); }
+        .barra-err { background: #e21b3c; height: 100%; display: flex; align-items: center; justify-content: center; font-weight: bold; transition: width 0.8s ease-in-out; width: 0%; color: white; text-shadow: 1px 1px 2px rgba(0,0,0,0.8); }
 
-        /* Tabla de Clasificación */
         .tabla-ranking { width: 100%; border-collapse: collapse; margin-top: 15px; background: #222; border-radius: 10px; overflow: hidden; }
         .tabla-ranking th, .tabla-ranking td { padding: 12px 15px; text-align: center; font-size: 18px; }
         .tabla-ranking th { background-color: #333; color: #00fa9a; }
@@ -29,13 +34,17 @@
         .tabla-ranking tr:hover { background-color: #353535; }
         .oro { color: #ffd700; font-weight: bold; }
 
-        /* Botones de Control */
         .btn-control { background-color: #ff9800; color: black; padding: 12px 25px; font-size: 18px; font-weight: bold; border: none; border-radius: 8px; cursor: pointer; transition: background-color 0.2s; }
         .btn-control:hover { background-color: #e68a00; }
-        
-        /* NUEVO: Clase especial para el botón de Iniciar */
         .btn-iniciar { background-color: #4CAF50; color: white; }
         .btn-iniciar:hover { background-color: #3e8e41; }
+        .btn-toggle { background-color: #008CBA; color: white; margin-top: 20px; display: none; }
+
+        .contenedor-grafico { display: flex; justify-content: center; align-items: center; gap: 40px; margin-top: 30px; background: #1e1e1e; padding: 30px; border-radius: 15px; border: 2px solid #444; }
+        .grafico-torta { width: 250px; height: 250px; border-radius: 50%; border: 4px solid #fff; box-shadow: 0 0 15px rgba(0,0,0,0.5); }
+        .leyenda-grafico { text-align: left; font-size: 24px; font-weight: bold; }
+
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(-5px); } to { opacity: 1; transform: translateY(0); } }
     </style>
 </head>
 <body>
@@ -46,26 +55,37 @@
                 <img src="/static/logo.jpg" alt="Logo ESFA" style="height: 75px; width: auto; border-radius: 5px;">
                 <img src="/static/unrn.png" alt="Logo UNRN" style="height: 70px; width: auto; border-radius: 5px;">
             </div>
-            <h2>🖥️ PANEL HOST <span id="contador-preguntas" style="color: #00fa9a;">(Lobby)</span></h2>
+            <h2>🎓 TRIVIA INTERACTIVA <span id="contador-preguntas" style="color: #00fa9a;">(Lobby)</span></h2>
             
-            <div id="timer-host" class="timer-host-badge">⏱️ 10s</div>
+            <div id="timer-host" class="timer-host-badge">⏱️ 15s</div>
             
             <button id="btn-accion-host" class="btn-control btn-iniciar" onclick="siguientePregunta()">🚀 INICIAR TRIVIA</button>
         </div>
 
         <div id="bloque-trivia" class="panel-pregunta">
-            <div id="pregunta-texto" class="enunciado">Esperando a los/as participantes... Presioná "INICIAR TRIVIA" cuando estén listos.</div>
+            <div id="pregunta-texto" class="enunciado">Esperando a los participantes... Presioná "INICIAR TRIVIA" cuando estén listos.</div>
             <div id="contenedor-opciones" class="opciones-container">
                 <div id="opcion-a-texto" class="opcion-caja red">▲ Opción A</div>
                 <div id="opcion-b-texto" class="opcion-caja blue">■ Opción B</div>
             </div>
+            
             <div id="respuesta-correcta-box" class="panel-correcta">
                 ✅ RESPUESTA CORRECTA: <span id="letra-correcta"></span>
+            </div>
+            
+            <div id="bloque-didactico" class="caja-didactica">
+                <div class="texto-justificacion">💡 <span id="texto-justificacion"></span></div>
+                
+                <h3 style="text-align: center; color: #aaa; margin-bottom: 8px; font-size: 16px;">📊 Rendimiento de esta pregunta</h3>
+                <div class="barra-estadisticas">
+                    <div id="barra-correctas" class="barra-ok"></div>
+                    <div id="barra-incorrectas" class="barra-err"></div>
+                </div>
             </div>
         </div>
 
         <div id="ranking-seccion">
-            <h3>🏆 TABLA DE POSICIONES (RANKING DE MAYOR A MENOR)</h3>
+            <h3 id="titulo-ranking">🏆 TABLA DE POSICIONES</h3>
             <table class="tabla-ranking">
                 <thead>
                     <tr>
@@ -77,18 +97,37 @@
                 </thead>
                 <tbody id="cuerpo-tabla">
                     <tr>
-                        <td colspan="4" style="color: #aaa;">Esperando que se unan los/as participantes...</td>
+                        <td colspan="4" style="color: #aaa;">Esperando que se unan los participantes...</td>
                     </tr>
                 </tbody>
             </table>
         </div>
+
+        <div id="estadisticas-finales" style="display: none;">
+            <h3 style="color: #00fa9a;">📈 RENDIMIENTO GENERAL DEL GRUPO</h3>
+            <div class="contenedor-grafico">
+                <div id="mi-grafico-torta" class="grafico-torta"></div>
+                <div class="leyenda-grafico">
+                    <p style="color: #4CAF50; margin-bottom: 10px;">✅ Aciertos: <span id="txt-tot-ok">0</span></p>
+                    <p style="color: #e21b3c; margin-top: 0;">❌ Errores: <span id="txt-tot-err">0</span></p>
+                    <hr style="border-color: #555;">
+                    <p style="font-size: 20px; color: #aaa;">Total de respuestas: <span id="txt-tot-votos">0</span></p>
+                </div>
+            </div>
+        </div>
+
+        <button id="btn-alternar-vista" class="btn-control btn-toggle" onclick="alternarVistasFinales()">Ver Gráfico de Torta 📊</button>
     </div>
 
     <script>
         const ws = new WebSocket(`ws://${window.location.host}/ws/host`);
         let temporizadorHost;
-        let tiempoRestanteHost = 10;
+        let tiempoRestanteHost = 15;
+        
         let respuestaCorrectaActiva = ""; 
+        let justificacionActiva = ""; 
+        let votosCorrectosEnVivo = 0;
+        let votosIncorrectosEnVivo = 0;
 
         ws.onmessage = (event) => {
             const datos = JSON.parse(event.data);
@@ -96,7 +135,7 @@
             if (datos.evento === "MOSTRAR_PREGUNTA") {
                 const btnHost = document.getElementById("btn-accion-host");
                 btnHost.innerText = "Siguiente Pregunta ➡️";
-                btnHost.classList.remove("btn-iniciar"); 
+                btnHost.classList.remove("btn-iniciar");
 
                 document.getElementById("contador-preguntas").innerText = `(${datos.numero_actual} / ${datos.total})`;
                 document.getElementById("ranking-seccion").style.display = "none";
@@ -104,12 +143,19 @@
                 document.getElementById("pregunta-texto").innerText = datos.enunciado;
                 document.getElementById("opcion-a-texto").innerText = `▲ A: ${datos.opcion_a}`;
                 document.getElementById("opcion-b-texto").innerText = `■ B: ${datos.opcion_b}`;
+                
                 document.getElementById("respuesta-correcta-box").style.display = "none";
+                document.getElementById("bloque-didactico").style.display = "none";
+                document.getElementById("barra-correctas").style.width = "0%";
+                document.getElementById("barra-incorrectas").style.width = "0%";
                 
                 respuestaCorrectaActiva = datos.correcta;
+                justificacionActiva = datos.justificacion;
+                votosCorrectosEnVivo = 0;
+                votosIncorrectosEnVivo = 0;
                 
                 clearInterval(temporizadorHost);
-                tiempoRestanteHost = 10;
+                tiempoRestanteHost = 15;
                 const displayHost = document.getElementById("timer-host");
                 displayHost.innerText = `⏳ ${tiempoRestanteHost}s`;
                 displayHost.style.color = "#ffeb3b";
@@ -121,9 +167,32 @@
                         displayHost.innerText = "⏰ ¡FIN!";
                         displayHost.style.color = "#ff5555";
                         
+                        ws.send(JSON.stringify({ "accion": "REVELAR_RESULTADOS" }));
+                        
                         if (respuestaCorrectaActiva) {
                             document.getElementById("letra-correcta").innerText = respuestaCorrectaActiva;
                             document.getElementById("respuesta-correcta-box").style.display = "block";
+                            document.getElementById("texto-justificacion").innerText = justificacionActiva;
+                            
+                            let totalVotos = votosCorrectosEnVivo + votosIncorrectosEnVivo;
+                            let pctOk = 0;
+                            let pctErr = 0;
+                            
+                            if (totalVotos > 0) {
+                                pctOk = Math.round((votosCorrectosEnVivo / totalVotos) * 100);
+                                pctErr = 100 - pctOk;
+                            }
+
+                            const barraOk = document.getElementById("barra-correctas");
+                            const barraErr = document.getElementById("barra-incorrectas");
+                            
+                            barraOk.style.width = pctOk + "%";
+                            barraOk.innerText = pctOk > 0 ? pctOk + "% ✅" : "";
+                            
+                            barraErr.style.width = pctErr + "%";
+                            barraErr.innerText = pctErr > 0 ? pctErr + "% ❌" : "";
+                            
+                            document.getElementById("bloque-didactico").style.display = "block";
                         }
                     } else {
                         displayHost.innerText = `⏳ ${tiempoRestanteHost}s`;
@@ -132,6 +201,11 @@
                         }
                     }
                 }, 1000);
+            }
+            
+            if (datos.evento === "ESTADISTICAS_VOTOS") {
+                votosCorrectosEnVivo = datos.correctos;
+                votosIncorrectosEnVivo = datos.incorrectos;
             }
             
             if (datos.evento === "ACTUALIZAR_RANKING") {
@@ -160,23 +234,62 @@
                 document.getElementById("timer-host").innerText = "🏁";
                 document.getElementById("contador-preguntas").innerText = "(Finalizado)";
                 
-                document.getElementById("pregunta-texto").innerText = "🎉 ¡Taller Finalizado! Acá está el podio del CET N°11 🎉";
+                document.getElementById("pregunta-texto").innerText = "🎉 ¡Taller Finalizado! Mirá el podio y las estadísticas 🎉";
                 document.getElementById("contenedor-opciones").style.display = "none";
                 document.getElementById("respuesta-correcta-box").style.display = "none";
+                document.getElementById("bloque-didactico").style.display = "none";
                 
+                // Mostrar Podio y botón
+                document.getElementById("titulo-ranking").innerText = "🏆 PODIO FINAL";
                 document.getElementById("ranking-seccion").style.display = "block";
+                document.getElementById("btn-alternar-vista").style.display = "inline-block";
                 
                 const btn = document.getElementById("btn-accion-host");
                 btn.disabled = true;
                 btn.style.backgroundColor = "#444";
                 btn.style.color = "#888";
                 btn.style.cursor = "not-allowed";
-                btn.innerText = "Finalizado 🔒";
+                btn.innerText = "Taller Finalizado 🔒";
+
+                // Configuracion de grafico de torta
+                let ok = datos.total_ok;
+                let err = datos.total_err;
+                let total = ok + err;
+                
+                document.getElementById("txt-tot-ok").innerText = ok;
+                document.getElementById("txt-tot-err").innerText = err;
+                document.getElementById("txt-tot-votos").innerText = total;
+
+                let porcentajeOk = 0;
+                if (total > 0) {
+                    porcentajeOk = (ok / total) * 100;
+                }
+                
+                // Porcentajes de aciertos en verde, y el resto rojo
+                document.getElementById("mi-grafico-torta").style.background = 
+                    `conic-gradient(#4CAF50 0% ${porcentajeOk}%, #e21b3c ${porcentajeOk}% 100%)`;
             }
         };
 
         function siguientePregunta() {
             ws.send(JSON.stringify({ "accion": "SIGUIENTE_PREGUNTA" }));
+        }
+
+        // Funcion para alternanr las pantallas
+        function alternarVistasFinales() {
+            const podio = document.getElementById("ranking-seccion");
+            const stats = document.getElementById("estadisticas-finales");
+            const btn = document.getElementById("btn-alternar-vista");
+
+            if (podio.style.display === "none") {
+                podio.style.display = "block";
+                stats.style.display = "none";
+                btn.innerText = "Ver Gráfico de Torta 📊";
+            } else {
+                podio.style.display = "none";
+                stats.style.display = "block";
+                btn.innerText = "Ver Podio de Jugadores 🏆";
+            }
         }
     </script>
 </body>
