@@ -76,21 +76,31 @@ class AdministradorJuego:
             return
         
         self.indice_pregunta_actual += 1
+        
+        # 🔥 CONTROL DE FIN DE JUEGO: Si pasamos la última pregunta (índice 10), el juego termina
         if self.indice_pregunta_actual >= len(self.preguntas):
-            self.indice_pregunta_actual = 0
+            if self.host_socket:
+                await self.host_socket.send_text(json.dumps({
+                    "evento": "JUEGO_TERMINADO"
+                }))
+            return
             
         pregunta = self.preguntas[self.indice_pregunta_actual]
         self.tiempo_inicio_pregunta = time.time() 
         
+        # 🖥️ Enviamos al Host con el contador de progreso y LA RESPUESTA CORRECTA oculta
         if self.host_socket:
             await self.host_socket.send_text(json.dumps({
                 "evento": "MOSTRAR_PREGUNTA",
                 "enunciado": pregunta["enunciado"],
                 "opcion_a": pregunta["opcion_a"],
-                "opcion_b": pregunta["opcion_b"]
+                "opcion_b": pregunta["opcion_b"],
+                "numero_actual": self.indice_pregunta_actual + 1,
+                "total": len(self.preguntas),
+                "correcta": pregunta["correcta"] # 🔥 Clave: el navegador del host la guarda pero no la muestra todavía
             }))
 
-        # 🔥 ACTUALIZADO: Ahora le mandamos todo el contenido a los celulares
+        # 📱 Broadcast masivo a los celulares pasándole el texto completo
         for cliente_ws in self.conexiones.keys():
             try:
                 await cliente_ws.send_text(json.dumps({
@@ -109,7 +119,6 @@ class AdministradorJuego:
         tiempo_respuesta = time.time() - self.tiempo_inicio_pregunta
         pregunta = self.preguntas[self.indice_pregunta_actual]
         
-        # Obtenemos el nombre asignado a este WebSocket y buscamos su perfil persistente
         nombre = self.conexiones[websocket]
         jugador = self.ranking[nombre]
 
@@ -119,19 +128,13 @@ class AdministradorJuego:
         else:
             jugador["tiempo_total"] += 10.0 
 
-        if self.host_socket:
-            await self.host_socket.send_text(json.dumps({
-                "evento": "REVELAR_RESPUESTA",
-                "correcta": pregunta["correcta"]
-            }))
-
+        # ✅ ACÁ YA NO HAY NADA MÁS. No se envía ningún mensaje de revelar al Host.
         await self.enviar_ranking_actualizado()
 
     async def enviar_ranking_actualizado(self):
         if not self.host_socket:
             return
             
-        # Reconstruimos la lista para ordenar basándonos en el ranking persistente
         lista_ranking = []
         for nombre, datos in self.ranking.items():
             lista_ranking.append({
@@ -140,7 +143,6 @@ class AdministradorJuego:
                 "tiempo_total": datos["tiempo_total"]
             })
         
-        # Algoritmo de desempate por tiempo
         lista_ranking.sort(key=lambda x: (x["puntos"], -x["tiempo_total"]), reverse=True)
         
         ranking_limpio = [
@@ -153,8 +155,7 @@ class AdministradorJuego:
             "ranking": ranking_limpio
         }))
 
-controlador = AdministradorJuego()        
-
+controlador = AdministradorJuego()
 # --- ENDPOINTS HTTP (Capa de Presentación) ---
 @app.get("/host")
 def vista_host():

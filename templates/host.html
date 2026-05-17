@@ -39,16 +39,16 @@
     <div class="contenedor-host">
         <div class="header-host">
             <img src="/static/logo.jpg" alt="Logo" class="logo-chico">
-            <h2>🖥️ PANEL DEL ANFITRIÓN - CET N°11</h2>
+            <h2>🖥️ PANEL HOST <span id="contador-preguntas" style="color: #00fa9a;">(Lobby)</span></h2>
             
             <div id="timer-host" class="timer-host-badge">⏱️ 10s</div>
             
             <button class="btn-control" onclick="siguientePregunta()">Siguiente Pregunta ➡️</button>
         </div>
 
-        <div class="panel-pregunta">
+        <div id="bloque-trivia" class="panel-pregunta">
             <div id="pregunta-texto" class="enunciado">Presioná "Siguiente Pregunta" para lanzar la trivia...</div>
-            <div class="opciones-container">
+            <div id="contenedor-opciones" class="opciones-container">
                 <div id="opcion-a-texto" class="opcion-caja red">▲ Opción A</div>
                 <div id="opcion-b-texto" class="opcion-caja blue">■ Opción B</div>
             </div>
@@ -57,40 +57,49 @@
             </div>
         </div>
 
-        <h3>🏆 TABLA DE POSICIONES (RANKING DE MAYOR A MENOR)</h3>
-        <table class="tabla-ranking">
-            <thead>
-                <tr>
-                    <th style="width: 10%">Puesto</th>
-                    <th style="width: 50%">Alumno</th>
-                    <th style="width: 20%">Puntaje</th>
-                    <th style="width: 20%">Tiempo Usado (s)</th>
-                </tr>
-            </thead>
-            <tbody id="cuerpo-tabla">
-                <tr>
-                    <td colspan="4" style="color: #aaa;">Esperando que se unan los chicos...</td>
-                </tr>
-            </tbody>
-        </table>
+        <div id="ranking-seccion">
+            <h3>🏆 TABLA DE POSICIONES (RANKING DE MAYOR A MENOR)</h3>
+            <table class="tabla-ranking">
+                <thead>
+                    <tr>
+                        <th style="width: 10%">Puesto</th>
+                        <th style="width: 50%">Alumno</th>
+                        <th style="width: 20%">Puntaje</th>
+                        <th style="width: 20%">Tiempo Usado (s)</th>
+                    </tr>
+                </thead>
+                <tbody id="cuerpo-tabla">
+                    <tr>
+                        <td colspan="4" style="color: #aaa;">Esperando que se unan los chicos...</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
     </div>
 
     <script>
         const ws = new WebSocket(`ws://${window.location.host}/ws/host`);
         let temporizadorHost;
         let tiempoRestanteHost = 10;
-        
+        let respuestaCorrectaActiva = ""; // 🔥 1. Variable para guardar la respuesta en memoria
+
         ws.onmessage = (event) => {
             const datos = JSON.parse(event.data);
             
             // 1. Cuando el backend nos manda una nueva pregunta
             if (datos.evento === "MOSTRAR_PREGUNTA") {
+                document.getElementById("contador-preguntas").innerText = `(${datos.numero_actual} / ${datos.total})`;
+                document.getElementById("ranking-seccion").style.display = "none";
+                
                 document.getElementById("pregunta-texto").innerText = datos.enunciado;
                 document.getElementById("opcion-a-texto").innerText = `▲ A: ${datos.opcion_a}`;
                 document.getElementById("opcion-b-texto").innerText = `■ B: ${datos.opcion_b}`;
                 document.getElementById("respuesta-correcta-box").style.display = "none";
                 
-                // ⏱️ Sincronizar y arrancar el reloj del Host de 10 a 0 segundos
+                // 🔥 2. Guardamos la respuesta correcta en secreto apenas llega
+                respuestaCorrectaActiva = datos.correcta;
+                
+                // Sincronizar y arrancar el reloj del Host de 10 a 0 segundos
                 clearInterval(temporizadorHost);
                 tiempoRestanteHost = 10;
                 const displayHost = document.getElementById("timer-host");
@@ -103,19 +112,25 @@
                         clearInterval(temporizadorHost);
                         displayHost.innerText = "⏰ ¡FIN!";
                         displayHost.style.color = "#ff5555";
+                        
+                        // 🔥 3. MAGIA: El reloj llegó a 0, revelamos el cartel verde
+                        if (respuestaCorrectaActiva) {
+                            document.getElementById("letra-correcta").innerText = respuestaCorrectaActiva;
+                            document.getElementById("respuesta-correcta-box").style.display = "block";
+                        }
                     } else {
                         displayHost.innerText = `⏳ ${tiempoRestanteHost}s`;
                         if (tiempoRestanteHost <= 3) {
-                            displayHost.style.color = "#ff3333"; // Se pone rojo crítico los últimos 3 segundos
+                            displayHost.style.color = "#ff3333";
                         }
                     }
                 }, 1000);
             }
             
-            // 2. Cuando el backend actualiza los puntos y el desempate por tiempo
+            // 2. Cuando el backend actualiza los puntos por detrás
             if (datos.evento === "ACTUALIZAR_RANKING") {
                 const tbody = document.getElementById("cuerpo-tabla");
-                tbody.innerHTML = ""; // Limpiamos la tabla anterior
+                tbody.innerHTML = ""; 
                 
                 datos.ranking.forEach((jugador, indice) => {
                     let medalla = indice + 1;
@@ -133,16 +148,32 @@
                     `;
                 });
             }
-            
-            // 3. Revelar respuesta correcta
-            if (datos.evento === "REVELAR_RESPUESTA") {
-                document.getElementById("letra-correcta").innerText = datos.correcta;
-                document.getElementById("respuesta-correcta-box").style.display = "block";
+
+            // 🏁 3. EL GRAN FINAL: Capturamos el cierre definitivo de la ronda 10
+            if (datos.evento === "JUEGO_TERMINADO") {
+                clearInterval(temporizadorHost);
+                document.getElementById("timer-host").innerText = "🏁";
+                document.getElementById("contador-preguntas").innerText = "(Finalizado)";
+                
+                // Modificamos el bloque principal para celebrar
+                document.getElementById("pregunta-texto").innerText = "🎉 ¡Taller Finalizado! Acá está el podio del CET N°11 🎉";
+                document.getElementById("contenedor-opciones").style.display = "none";
+                document.getElementById("respuesta-correcta-box").style.display = "none";
+                
+                // 💥 REVELACIÓN DEL PODIO
+                document.getElementById("ranking-seccion").style.display = "block";
+                
+                // Bloqueamos por completo el botón
+                const btn = document.querySelector(".btn-control");
+                btn.disabled = true;
+                btn.style.backgroundColor = "#444";
+                btn.style.color = "#888";
+                btn.style.cursor = "not-allowed";
+                btn.innerText = "Finalizado 🔒";
             }
         };
 
         function siguientePregunta() {
-            // Le avisamos al backend por el WebSocket que queremos cambiar de pregunta
             ws.send(JSON.stringify({ "accion": "SIGUIENTE_PREGUNTA" }));
         }
     </script>
