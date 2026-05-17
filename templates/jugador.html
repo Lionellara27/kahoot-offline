@@ -33,7 +33,7 @@
     <div class="contenedor-pantalla">
         <div id="pantalla-login">
             <img src="/static/logo.jpg" alt="Logo ESFA" class="logo">
-            <h2>👋 ¡HOLA A TOD@S CHIC@S DEL CET N11!</h2>
+            <h2>👋 ¡LES DAMOS LA BIENVENIDA C.E.T. N° 11!</h2>
             <p>Para comenzar a jugar introduzca su nombre/apodo:</p>
             <input type="text" id="input-nombre" placeholder="Tu nombre acá..." autocomplete="off">
             <br>
@@ -42,9 +42,9 @@
 
         <div id="pantalla-espera" class="oculto">
             <img src="/static/logo.jpg" alt="Logo ESFA" class="logo">
-            <h2>¡Bueno <span id="nombre-usuario" class="destacado"></span>! ¿Estás listo para jugar y repasar lo aprendido?</h2>
-            <p>💡 Vas a tener algunas preguntas y cada pregunta correcta te va a sumar puntos!</p>
-            <p class="destacado">⚠️ ¡Tenés solo 10 segundos para responder cada una!</p>
+            <h2>¡Excelente, <span id="nombre-usuario" class="destacado"></span>! ¿Todo listo para jugar y repasar lo aprendido?</h2>
+            <p>💡 Vas a tener algunas preguntas y cada opción correcta te va a sumar puntos!</p>
+            <p class="destacado">⚠️ ¡Tenés solo 15 segundos para responder cada una!</p>
             <hr style="border-color: #444; margin: 20px 0;">
             <button class="btn-accion" style="background-color: #008CBA;" onclick="comenzarYa()">¡Comenzar Ya!</button>
             <p style="margin-top: 20px; color: #aaa;">El juego comenzará solo en:</p>
@@ -58,7 +58,7 @@
             
             <div class="pregunta-en-celu">
                 <span class="tag-pregunta">📋 PREGUNTA:</span>
-                <span id="texto-pregunta-celu">Esperando que el Host lance la primera pregunta...</span>
+                <span id="texto-pregunta-celu">Esperando a que envíen la primera pregunta...</span>
             </div>
             
             <div class="grid-botones">
@@ -78,14 +78,14 @@
         let tiempoRestanteLobby = 15;
         
         let temporizadorPregunta;
-        let tiempoRestantePregunta = 10;
+        let tiempoRestantePregunta = 15;
 
         function procesarIngreso() {
             const input = document.getElementById("input-nombre");
             nombreJugador = input.value.trim();
 
             if (nombreJugador === "") {
-                alert("Por favor, poné un nombre o apodo antes de jugar.");
+                alert("Por favor, escribí un nombre o apodo antes de jugar.");
                 return;
             }
 
@@ -111,7 +111,7 @@
                     document.getElementById("btn-b").innerText = `■ B: ${datos.opcion_b}`;
                     
                     clearInterval(temporizadorPregunta);
-                    tiempoRestantePregunta = 10;
+                    tiempoRestantePregunta = 15;
                     document.getElementById("timer-pregunta").innerText = tiempoRestantePregunta;
                     document.getElementById("timer-pregunta").style.color = "#ffeb3b";
                     document.getElementById("estado-voto").innerText = "";
@@ -210,7 +210,7 @@
                 ws.send(opcion);
                 clearInterval(temporizadorPregunta);
                 activarBotones(false);
-                document.getElementById("estado-voto").innerText = `📥 Enviaste la opción ${opcion}. ¡Esperá a que el host avance!`;
+                document.getElementById("estado-voto").innerText = `📥 Enviaste la opción ${opcion}. ¡Esperá a que pasen de pregunta!`;
                 document.getElementById("estado-voto").style.color = "#00ffaa";
             }
         }

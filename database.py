@@ -50,8 +50,8 @@ def inicializar_db():
         ('Si queremos saber cuál fue el día del mes con la temperatura más extrema registrada en la parcela, ¿qué función usamos?', 
          'La función PROMEDIO', 'La función MÁXIMO (MAX)', 'B'),
          
-        ('Cuando usamos una Inteligencia Artificial para analizar datos, ¿a qué nos referimos con la palabra "Prompt"?', 
-         'A la instrucción o pregunta clara y específica que le escribimos a la IA para obtener una buena respuesta', 'A un cable especial que se conecta a los celulares para transmitir datos sin internet', 'A')
+        ('Además de responder preguntas como un chat, ¿para qué otra cosa podemos utilizar la Inteligencia Artificial?',
+         'Como una herramienta aliada para generar y redactar tablas de datos sintpeticos (de prueba) para que nosotros practiquemos.', 'Para que nos hackee las netbooks de la escuela y podamos jugar sin internet', 'A')
     ]
     
     # 4. Inyectamos todas las preguntas oficiales juntas

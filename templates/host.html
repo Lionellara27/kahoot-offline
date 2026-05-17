@@ -8,7 +8,6 @@
         body { font-family: Arial, sans-serif; background-color: #111; color: white; padding: 20px; text-align: center; }
         .contenedor-host { max-width: 900px; margin: 0 auto; }
         .header-host { display: flex; justify-content: space-between; align-items: center; background: #222; padding: 15px 30px; border-radius: 12px; margin-bottom: 20px; gap: 15px; }
-        .logo-chico { width: 60px; height: auto; border-radius: 5px; }
         
         /* Estilo del Reloj Timer Flotante para el Anfitrión */
         .timer-host-badge { font-size: 24px; font-weight: bold; color: #ffeb3b; background: #111; padding: 8px 18px; border-radius: 8px; min-width: 90px; border: 1px solid #444; transition: color 0.3s; }
@@ -30,8 +29,13 @@
         .tabla-ranking tr:hover { background-color: #353535; }
         .oro { color: #ffd700; font-weight: bold; }
 
+        /* Botones de Control */
         .btn-control { background-color: #ff9800; color: black; padding: 12px 25px; font-size: 18px; font-weight: bold; border: none; border-radius: 8px; cursor: pointer; transition: background-color 0.2s; }
         .btn-control:hover { background-color: #e68a00; }
+        
+        /* NUEVO: Clase especial para el botón de Iniciar */
+        .btn-iniciar { background-color: #4CAF50; color: white; }
+        .btn-iniciar:hover { background-color: #3e8e41; }
     </style>
 </head>
 <body>
@@ -46,11 +50,11 @@
             
             <div id="timer-host" class="timer-host-badge">⏱️ 10s</div>
             
-            <button class="btn-control" onclick="siguientePregunta()">Siguiente Pregunta ➡️</button>
+            <button id="btn-accion-host" class="btn-control btn-iniciar" onclick="siguientePregunta()">🚀 INICIAR TRIVIA</button>
         </div>
 
         <div id="bloque-trivia" class="panel-pregunta">
-            <div id="pregunta-texto" class="enunciado">Presioná "Siguiente Pregunta" para lanzar la trivia...</div>
+            <div id="pregunta-texto" class="enunciado">Esperando a los/as participantes... Presioná "INICIAR TRIVIA" cuando estén listos.</div>
             <div id="contenedor-opciones" class="opciones-container">
                 <div id="opcion-a-texto" class="opcion-caja red">▲ Opción A</div>
                 <div id="opcion-b-texto" class="opcion-caja blue">■ Opción B</div>
@@ -66,14 +70,14 @@
                 <thead>
                     <tr>
                         <th style="width: 10%">Puesto</th>
-                        <th style="width: 50%">Alumno</th>
+                        <th style="width: 50%">Participante</th>
                         <th style="width: 20%">Puntaje</th>
                         <th style="width: 20%">Tiempo Usado (s)</th>
                     </tr>
                 </thead>
                 <tbody id="cuerpo-tabla">
                     <tr>
-                        <td colspan="4" style="color: #aaa;">Esperando que se unan los chicos...</td>
+                        <td colspan="4" style="color: #aaa;">Esperando que se unan los/as participantes...</td>
                     </tr>
                 </tbody>
             </table>
@@ -84,13 +88,16 @@
         const ws = new WebSocket(`ws://${window.location.host}/ws/host`);
         let temporizadorHost;
         let tiempoRestanteHost = 10;
-        let respuestaCorrectaActiva = ""; //1. Variable para guardar la respuesta en memoria
+        let respuestaCorrectaActiva = ""; 
 
         ws.onmessage = (event) => {
             const datos = JSON.parse(event.data);
             
-            // 1. Cuando el backend nos manda una nueva pregunta
             if (datos.evento === "MOSTRAR_PREGUNTA") {
+                const btnHost = document.getElementById("btn-accion-host");
+                btnHost.innerText = "Siguiente Pregunta ➡️";
+                btnHost.classList.remove("btn-iniciar"); 
+
                 document.getElementById("contador-preguntas").innerText = `(${datos.numero_actual} / ${datos.total})`;
                 document.getElementById("ranking-seccion").style.display = "none";
                 
@@ -99,10 +106,8 @@
                 document.getElementById("opcion-b-texto").innerText = `■ B: ${datos.opcion_b}`;
                 document.getElementById("respuesta-correcta-box").style.display = "none";
                 
-                //2. Guardamos la respuesta correcta en secreto apenas llega
                 respuestaCorrectaActiva = datos.correcta;
                 
-                // Sincronizar y arrancar el reloj del Host de 10 a 0 segundos
                 clearInterval(temporizadorHost);
                 tiempoRestanteHost = 10;
                 const displayHost = document.getElementById("timer-host");
@@ -116,7 +121,6 @@
                         displayHost.innerText = "⏰ ¡FIN!";
                         displayHost.style.color = "#ff5555";
                         
-                        //3. MAGIA: El reloj llegó a 0, revelamos el cartel verde
                         if (respuestaCorrectaActiva) {
                             document.getElementById("letra-correcta").innerText = respuestaCorrectaActiva;
                             document.getElementById("respuesta-correcta-box").style.display = "block";
@@ -130,7 +134,6 @@
                 }, 1000);
             }
             
-            // 2. Cuando el backend actualiza los puntos por detrás
             if (datos.evento === "ACTUALIZAR_RANKING") {
                 const tbody = document.getElementById("cuerpo-tabla");
                 tbody.innerHTML = ""; 
@@ -152,22 +155,18 @@
                 });
             }
 
-            //3. EL GRAN FINAL: Capturamos el cierre definitivo de la ronda 10
             if (datos.evento === "JUEGO_TERMINADO") {
                 clearInterval(temporizadorHost);
                 document.getElementById("timer-host").innerText = "🏁";
                 document.getElementById("contador-preguntas").innerText = "(Finalizado)";
                 
-                // Modificamos el bloque principal para celebrar
                 document.getElementById("pregunta-texto").innerText = "🎉 ¡Taller Finalizado! Acá está el podio del CET N°11 🎉";
                 document.getElementById("contenedor-opciones").style.display = "none";
                 document.getElementById("respuesta-correcta-box").style.display = "none";
                 
-                //REVELACIÓN DEL PODIO
                 document.getElementById("ranking-seccion").style.display = "block";
                 
-                // Bloqueamos por completo el botón
-                const btn = document.querySelector(".btn-control");
+                const btn = document.getElementById("btn-accion-host");
                 btn.disabled = true;
                 btn.style.backgroundColor = "#444";
                 btn.style.color = "#888";
