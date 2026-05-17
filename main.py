@@ -11,7 +11,7 @@ app = FastAPI()
 # 1. Inicializamos la base de datos relacional (SQLite)
 inicializar_db()
 
-# 2. Montamos la carpeta de recursos estáticos (para servir el logo del CET N°11)
+# 2. Colocamos la carpeta de recursos estáticos (para servir el logo del CET N°11)
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
 # 3. Cargamos los frontend limpios desde sus archivos HTML independientes
@@ -26,9 +26,9 @@ with open("templates/host.html", "r", encoding="utf-8") as f:
 class AdministradorJuego:
     def __init__(self):
         self.host_socket: WebSocket = None
-        # 🔌 Diccionario volátil: mapea solo conexiones web activas { websocket: "Nombre" }
+        # -> Diccionario volátil: mapea solo conexiones web activas { websocket: "Nombre" }
         self.conexiones = {}       
-        # 🏆 Diccionario persistente: retiene puntajes { "Nombre": {"puntos": int, "tiempo_total": float} }
+        # -> Diccionario persistente: retiene puntajes { "Nombre": {"puntos": int, "tiempo_total": float} }
         self.ranking = {}          
         
         self.preguntas = obtener_todas_las_preguntas()
@@ -46,17 +46,17 @@ class AdministradorJuego:
         # Registramos la nueva conexión física del celular
         self.conexiones[websocket] = nombre
         
-        # 🔥 CONTROL DE PERSISTENCIA:
+        # -->CONTROL DE PERSISTENCIA:
         # Si el alumno es nuevo, le creamos el perfil desde cero.
         if nombre not in self.ranking:
             self.ranking[nombre] = {
                 "puntos": 0,
                 "tiempo_total": 0.0
             }
-            print(f"📱 El alumno '{nombre}' se ha unido por primera vez.")
+            print(f"📱📱 El alumno '{nombre}' se ha unido por primera vez.") #uso el emoji y el print para saber de donde se conecta y que hace
         else:
             # Si ya existía en el ranking, conserva sus puntos intactos!
-            print(f"🔄 ¡Reconexión detectada! El alumno '{nombre}' recuperó su sesión y sus puntos.")
+            print(f"🔄🔄 ¡Reconexión detectada! El alumno '{nombre}' recuperó su sesión y sus puntos.")
             
         await self.enviar_ranking_actualizado()
 
@@ -72,12 +72,12 @@ class AdministradorJuego:
             await self.enviar_ranking_actualizado()
     async def avanzar_pregunta(self):
         if not self.preguntas:
-            print("⚠️ No hay preguntas cargadas en la base de datos.")
+            print("⚠️ No hay preguntas cargadas en la base de datos.") ## si falla algo que lo tire por pantalla
             return
         
         self.indice_pregunta_actual += 1
         
-        # 🔥 CONTROL DE FIN DE JUEGO: Si pasamos la última pregunta (índice 10), el juego termina
+        # CONTROL DE FIN DE JUEGO: Si pasamos la última pregunta (índice 10), el juego termina
         if self.indice_pregunta_actual >= len(self.preguntas):
             if self.host_socket:
                 await self.host_socket.send_text(json.dumps({
@@ -88,7 +88,7 @@ class AdministradorJuego:
         pregunta = self.preguntas[self.indice_pregunta_actual]
         self.tiempo_inicio_pregunta = time.time() 
         
-        # 🖥️ Enviamos al Host con el contador de progreso y LA RESPUESTA CORRECTA oculta
+        # Enviamos al Host con el contador de progreso y LA RESPUESTA CORRECTA oculta
         if self.host_socket:
             await self.host_socket.send_text(json.dumps({
                 "evento": "MOSTRAR_PREGUNTA",
@@ -100,7 +100,7 @@ class AdministradorJuego:
                 "correcta": pregunta["correcta"] # 🔥 Clave: el navegador del host la guarda pero no la muestra todavía
             }))
 
-        # 📱 Broadcast masivo a los celulares pasándole el texto completo
+        # "DIFUNDIMOS" A TODOS los celulares pasándole el texto completo
         for cliente_ws in self.conexiones.keys():
             try:
                 await cliente_ws.send_text(json.dumps({
@@ -128,7 +128,7 @@ class AdministradorJuego:
         else:
             jugador["tiempo_total"] += 10.0 
 
-        # ✅ ACÁ YA NO HAY NADA MÁS. No se envía ningún mensaje de revelar al Host.
+        # ACÁ YA NO HAY NADA MÁS. No se envía ningún mensaje de revelar al Host.
         await self.enviar_ranking_actualizado()
 
     async def enviar_ranking_actualizado(self):

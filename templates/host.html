@@ -10,7 +10,7 @@
         .header-host { display: flex; justify-content: space-between; align-items: center; background: #222; padding: 15px 30px; border-radius: 12px; margin-bottom: 20px; gap: 15px; }
         .logo-chico { width: 60px; height: auto; border-radius: 5px; }
         
-        /* ⏳ Estilo del Timer Flotante para el Anfitrión */
+        /* Estilo del Reloj Timer Flotante para el Anfitrión */
         .timer-host-badge { font-size: 24px; font-weight: bold; color: #ffeb3b; background: #111; padding: 8px 18px; border-radius: 8px; min-width: 90px; border: 1px solid #444; transition: color 0.3s; }
         
         /* Panel de Preguntas */
@@ -81,7 +81,7 @@
         const ws = new WebSocket(`ws://${window.location.host}/ws/host`);
         let temporizadorHost;
         let tiempoRestanteHost = 10;
-        let respuestaCorrectaActiva = ""; // 🔥 1. Variable para guardar la respuesta en memoria
+        let respuestaCorrectaActiva = ""; //1. Variable para guardar la respuesta en memoria
 
         ws.onmessage = (event) => {
             const datos = JSON.parse(event.data);
@@ -96,7 +96,7 @@
                 document.getElementById("opcion-b-texto").innerText = `■ B: ${datos.opcion_b}`;
                 document.getElementById("respuesta-correcta-box").style.display = "none";
                 
-                // 🔥 2. Guardamos la respuesta correcta en secreto apenas llega
+                //2. Guardamos la respuesta correcta en secreto apenas llega
                 respuestaCorrectaActiva = datos.correcta;
                 
                 // Sincronizar y arrancar el reloj del Host de 10 a 0 segundos
@@ -113,7 +113,7 @@
                         displayHost.innerText = "⏰ ¡FIN!";
                         displayHost.style.color = "#ff5555";
                         
-                        // 🔥 3. MAGIA: El reloj llegó a 0, revelamos el cartel verde
+                        //3. MAGIA: El reloj llegó a 0, revelamos el cartel verde
                         if (respuestaCorrectaActiva) {
                             document.getElementById("letra-correcta").innerText = respuestaCorrectaActiva;
                             document.getElementById("respuesta-correcta-box").style.display = "block";
@@ -149,7 +149,7 @@
                 });
             }
 
-            // 🏁 3. EL GRAN FINAL: Capturamos el cierre definitivo de la ronda 10
+            //3. EL GRAN FINAL: Capturamos el cierre definitivo de la ronda 10
             if (datos.evento === "JUEGO_TERMINADO") {
                 clearInterval(temporizadorHost);
                 document.getElementById("timer-host").innerText = "🏁";
@@ -160,7 +160,7 @@
                 document.getElementById("contenedor-opciones").style.display = "none";
                 document.getElementById("respuesta-correcta-box").style.display = "none";
                 
-                // 💥 REVELACIÓN DEL PODIO
+                //REVELACIÓN DEL PODIO
                 document.getElementById("ranking-seccion").style.display = "block";
                 
                 // Bloqueamos por completo el botón

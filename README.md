@@ -39,6 +39,7 @@ Es la interfaz optimizada para celulares que actúa como control remoto para res
 URL desde la Red LAN: http://<TU_IP_LOCAL>:8000 (Ejemplo: http://192.168.X.X:8000)
 
 📌 Estado Actual del Proyecto
+
 [x] Fase 1: Infraestructura de red local (LAN) y comunicación HTTP.
 
 [x] Fase 2: Arquitectura en tiempo real con WebSockets para envío de respuestas.

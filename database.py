@@ -18,10 +18,10 @@ def inicializar_db():
     )
     """)
     
-    # 2. 🔥 LIMPIEZA: Vaciamos las preguntas viejas de prueba para meter las del taller
+    # 2. LIMPIEZA: Vaciamos las preguntas viejas de prueba para meter las del taller
     cursor.execute("DELETE FROM preguntas")
     
-    # 3. 📝 Lista con tus 10 preguntas oficiales para el taller de la ESFA
+    # 3. -> Lista con tus 10 preguntas oficiales para el taller de la ESFA <-
     preguntas_taller = [
         ('Si ves el número "24" suelto en un pizarrón de la escuela, sin saber de qué se trata... ¿Qué es?', 
          'Un Dato (un hecho crudo sin procesar)', 'Información (ya tiene contexto y significado)', 'A'),
