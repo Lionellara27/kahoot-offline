@@ -206,6 +206,7 @@ async def ws_host(websocket: WebSocket):
 
 @app.websocket("/ws/jugador")
 async def ws_jugador(websocket: WebSocket, nombre: str = Query(...)):
+    # Capturamos el parámetro 'nombre' enviado por el alumno desde el formulario de bienvenida
     await controlador.conectar_jugador(websocket, nombre)
     try:
         while True:
