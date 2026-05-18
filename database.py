@@ -3,13 +3,14 @@ import sqlite3
 DB_NAME = "kahoot.db"
 
 def inicializar_db():
+    # Se conecta al archivo (si no existe, lo crea automáticamente)
     conexion = sqlite3.connect(DB_NAME)
     cursor = conexion.cursor()
-    cursor.execute("DROP TABLE IF EXISTS preguntas")
+    #cursor.execute("DROP TABLE IF EXISTS preguntas") -> este borra la tabla sirve para modificar algo pero no para persistir! 
     
-    # 1. Creamos la tabla nueva con la Clave Primaria Natural y la columna de justificación
+    #Crear tabla de Preguntas si no existe
     cursor.execute("""
-    CREATE TABLE preguntas (
+    CREATE TABLE IF NOT EXISTS preguntas (
         codigo_pregunta TEXT PRIMARY KEY,
         enunciado TEXT NOT NULL,
         opcion_a TEXT NOT NULL,
@@ -18,8 +19,11 @@ def inicializar_db():
         justificacion TEXT NOT NULL
     )
     """)
-    
-    # 3. Lista con las 10 preguntas y sus justificaciones
+
+    #LIMPIO LAS TABLAS! QUEDA EN 0 de datos
+    cursor.execute("DELETE FROM preguntas")
+
+    #Lista con las 10 preguntas y sus justificaciones (relleno todo again x asi decirlo)
     preguntas_taller = [
         ('PREG-01', 'Si ves el número "24" suelto en un pizarrón de la escuela, sin saber de qué se trata... ¿Qué es?', 
          'Un Dato (un hecho crudo sin procesar)', 'Información (ya tiene contexto y significado)', 'A',
@@ -62,7 +66,8 @@ def inicializar_db():
          'Como herramienta aliada para generar tablas de datos sintéticos (de prueba) para que nosotros practiquemos.', 'Para que nos hackee las netbooks de la escuela y podamos jugar sin internet', 'A',
          'Crear "Datos Sintéticos" realistas con IA es una práctica muy utilizada para testear sistemas o armar clases.')
     ]
-    
+
+    #Inyectamos todas las preguntas oficiales juntas
     cursor.executemany("""
     INSERT INTO preguntas (codigo_pregunta, enunciado, opcion_a, opcion_b, correcta, justificacion) 
     VALUES (?, ?, ?, ?, ?, ?)
@@ -74,9 +79,13 @@ def inicializar_db():
 
 def obtener_todas_las_preguntas():
     conexion = sqlite3.connect(DB_NAME)
+    # Usamos sqlite3.Row para mapear automáticamente los nombres de las columnas
     conexion.row_factory = sqlite3.Row
     cursor = conexion.cursor()
+    
     cursor.execute("SELECT enunciado, opcion_a, opcion_b, correcta, justificacion FROM preguntas")
     filas = cursor.fetchall()
     conexion.close()
+    
+    # Devolvemos una lista limpia de diccionarios que el main.py entiende de una
     return [dict(fila) for fila in filas]
