@@ -95,11 +95,12 @@
                 document.getElementById("pantalla-espera").classList.remove("oculto");
             };
 
-            ws.onmessage = (event) => {
+                ws.onmessage = (event) => {
                 const datos = JSON.parse(event.data);
-                
+
+                // 1️⃣ EVENTO: NUEVA PREGUNTA (Sincronizado a 20s y con reset de colores)
                 if (datos.evento === "NUEVA_PREGUNTA") {
-                    miVoto = "";
+                    miVoto = ""; // Clave de Aylin para resetear el voto de la ronda anterior
                     document.getElementById("pantalla-espera").classList.add("oculto");
                     document.getElementById("pantalla-juego").classList.remove("oculto");
                     
@@ -108,15 +109,19 @@
                     document.getElementById("btn-b").innerText = `■ B: ${datos.opcion_b}`;
                     
                     clearInterval(temporizadorPregunta);
-                    tiempoRestantePregunta = 15;
-                    document.getElementById("timer-pregunta").innerText = tiempoRestantePregunta;
-                    document.getElementById("timer-pregunta").style.color = "#ffeb3b";
+                    tiempoRestantePregunta = 20; // 🎯 Sincronizado a 20 segundos
+                    
+                    const display = document.getElementById("timer-pregunta");
+                    display.innerText = tiempoRestantePregunta;
+                    display.style.color = "#ffeb3b"; // Resetea el reloj a amarillo/blanco cada ronda
+                    
                     document.getElementById("estado-voto").innerText = "";
                     
                     activarBotones(true);
                     iniciarCuentaRegresivaPregunta();
                 }
                 
+                // 2️⃣ EVENTO: REVELAR CORRECTA (Bloque de Aylin para dar feedback instantáneo)
                 if (datos.evento === "REVELAR_CORRECTA") {
                     clearInterval(temporizadorPregunta);
                     activarBotones(false);
@@ -133,20 +138,46 @@
                         divEstado.style.color = "#ff5555";
                     }
                 }
-                
+
+                // 3️⃣ EVENTO: JUEGO TERMINADO (Tu bloque definitivo con el Fix del reloj)
                 if (datos.evento === "JUEGO_TERMINADO") {
-                    const puntos = datos.puntos || 0; // Previene errores si no hay puntos
+                    clearInterval(temporizadorPregunta); // 🛑 Fix crítico: frena el bucle para que no rompa el script
+                    
+                    const puntos = datos.puntos || 0;
+                    let contenidoFinal = "";
+                    
+                    if (puntos === 100) {
+                        contenidoFinal = `
+                            <h1 style="color: #4CAF50; font-size: 32px; margin-bottom: 10px;">🏆 ¡JUEGO FINALIZADO! 🏆</h1>
+                            <p style="font-size: 22px; color: #aaa;">Tu puntuación fue de:</p>
+                            <div style="font-size: 50px; font-weight: bold; color: #ffeb3b; margin: 20px 0;">${puntos} pts</div>
+                            <div style="background: #1c351e; border: 2px solid #4CAF50; padding: 20px; border-radius: 12px; margin-top: 20px; color: #e2f0d9; font-weight: bold; line-height: 1.4;">
+                                🎉 ¡FELICIDADES!<br>Acertaste todas las preguntas. 🎉
+                            </div>
+                        `;
+                    } else {
+                        contenidoFinal = `
+                            <h1 style="color: #ff9800; font-size: 32px; margin-bottom: 10px;">🏁 ¡JUEGO FINALIZADO! 🏁</h1>
+                            <p style="font-size: 22px; color: #aaa;">Tu puntuación fue de:</p>
+                            <div style="font-size: 50px; font-weight: bold; color: #ffeb3b; margin: 20px 0;">${puntos} pts</div>
+                            <div style="background: #222; border: 1px solid #444; padding: 20px; border-radius: 12px; margin-top: 20px; color: #ccc; line-height: 1.4;">
+                                ¡Muchas gracias por participar!<br>Mirá la pantalla para ver el podio. 👏
+                            </div>
+                        `;
+                    }
+                    
+                    // Limpieza total del body y renderizado de tu tarjeta de cierre
                     document.body.innerHTML = `
                         <div style="font-family: Arial, sans-serif; background-color: #222; color: white; padding: 40px 20px; text-align: center; min-height: 100vh; display: flex; flex-direction: column; justify-content: center; align-items: center;">
+                            
                             <div style="background: #333; border: 2px solid #444; padding: 30px; border-radius: 15px; max-width: 450px; width: 100%; box-shadow: 0px 4px 15px rgba(0,0,0,0.5); margin-bottom: 30px;">
-                                <h1 style="color: #ff9800; font-size: 32px; margin-bottom: 10px;">🏁 ¡JUEGO FINALIZADO! 🏁</h1>
-                                <div style="background: #222; border: 1px solid #444; padding: 20px; border-radius: 12px; margin-top: 20px; color: #ccc; line-height: 1.4;">
-                                    ¡Muchas gracias por participar!<br>Mirá la pantalla para ver el podio. 👏
-                                </div>
+                                ${contenidoFinal}
                             </div>
+
                             <div style="margin-top: 10px; display: flex; justify-content: center;">
                                 <img src="/static/unrn.png" alt="Logo UNRN" style="height: 120px; width: auto; border-radius: 4px;">
                             </div>
+
                         </div>
                     `;
                 }

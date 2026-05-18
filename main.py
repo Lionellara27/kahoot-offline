@@ -50,7 +50,6 @@ class AdministradorJuego:
         if websocket in self.conexiones:
             del self.conexiones[websocket] 
             await self.enviar_ranking_actualizado()
-
     async def avanzar_pregunta(self):
         if not self.preguntas:
             return
@@ -59,15 +58,28 @@ class AdministradorJuego:
         self.votos_incorrectos = 0
         self.indice_pregunta_actual += 1
         
+        # 🏁 --- CONTROL DE FIN DE JUEGO (SECCIÓN CORREGIDA) ---
         if self.indice_pregunta_actual >= len(self.preguntas):
+            # 1. Le avisamos al Host (Mantiene las estadísticas de Aylin para el gráfico final)
             if self.host_socket:
-                # Envia los totales históricos cuando termina el juego
                 await self.host_socket.send_text(json.dumps({
                     "evento": "JUEGO_TERMINADO",
                     "total_ok": self.global_correctos,
                     "total_err": self.global_incorrectos
                 }))
+            
+            # 2. 🎯 ¡EL FIX! Recorremos cada celu activo y le inyectamos su puntaje real de 'self.ranking'
+            for cliente_ws, nombre in self.conexiones.items():
+                try:
+                    jugador_data = self.ranking.get(nombre, {"puntos": 0})
+                    await cliente_ws.send_text(json.dumps({
+                        "evento": "JUEGO_TERMINADO",
+                        "puntos": jugador_data["puntos"]
+                    }))
+                except:
+                    pass
             return
+        # --------------------------------------------------------
             
         pregunta = self.preguntas[self.indice_pregunta_actual]
         self.tiempo_inicio_pregunta = time.time() 
@@ -147,6 +159,8 @@ class AdministradorJuego:
 
 controlador = AdministradorJuego()
 
+    # --- ENDPOINTS HTTP (Capa de Presentación) ---
+
 @app.get("/host")
 def vista_host():
     return HTMLResponse(content=HTML_HOST)
@@ -154,6 +168,9 @@ def vista_host():
 @app.get("/")
 def vista_jugador():
     return HTMLResponse(content=HTML_PLAYER)
+
+# --- ENDPOINTS WEBSOCKETS (Capa de Comunicación Asíncrona) ---
+
 
 @app.websocket("/ws/host")
 async def ws_host(websocket: WebSocket):
