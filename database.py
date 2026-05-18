@@ -45,9 +45,10 @@ def inicializar_db():
          'Solamente lograr que la computadora se vea más prolija y ordenada', 'Poder analizar la información claramente para tomar mejores decisiones basadas en la realidad', 'B',
          'El objetivo de estructurar los datos no es estético, sino facilitar el análisis para resolver problemas reales en el campo.'),
          
-        ('PREG-07', 'Si en la clase de Organización y Gestión hablan de un "Gráfico de Torta", se están refiriendo a...', 
-         'Un lemon pie o un bizcochuelo para compartir en el recreo de la ESFA', 'Una herramienta visual redonda dividida en porciones que facilita entender los porcentajes', 'B',
-         'El gráfico circular (o de torta) es ideal para mostrar proporciones y representar porcentajes visualmente.'),
+        ('PREG-07', '¿Cuál es la función principal de un "Gráfico de Torta" al representar datos de un proyecto?', 
+         'Mostrar la tendencia o evolución de una variable a lo largo del tiempo cronológico', 
+         'Representar la proporción o porcentaje de diferentes categorías respecto a un total', 'B',
+         'El gráfico circular o de torta es la herramienta ideal para visualizar cómo se distribuye un total en porciones o porcentajes.'),
          
         ('PREG-08', 'Si medimos los niveles de glucemia de un paciente y el resultado arroja exactamente "115 mg/dL", ¿qué tipo de dato es?', 
          'Un dato Numérico', 'Un dato Categórico (una etiqueta de texto)', 'A',

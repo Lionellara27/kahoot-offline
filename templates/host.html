@@ -57,7 +57,7 @@
             </div>
             <h2>🎓 TRIVIA INTERACTIVA <span id="contador-preguntas" style="color: #00fa9a;">(Lobby)</span></h2>
             
-            <div id="timer-host" class="timer-host-badge">⏱️ 15s</div>
+            <div id="timer-host" class="timer-host-badge">⏱️ 20s</div>
             
             <button id="btn-accion-host" class="btn-control btn-iniciar" onclick="siguientePregunta()">🚀 INICIAR TRIVIA</button>
         </div>
@@ -122,7 +122,7 @@
     <script>
         const ws = new WebSocket(`ws://${window.location.host}/ws/host`);
         let temporizadorHost;
-        let tiempoRestanteHost = 15;
+        let tiempoRestanteHost = 20;
         
         let respuestaCorrectaActiva = ""; 
         let justificacionActiva = ""; 
@@ -155,7 +155,7 @@
                 votosIncorrectosEnVivo = 0;
                 
                 clearInterval(temporizadorHost);
-                tiempoRestanteHost = 15;
+                tiempoRestanteHost = 20;
                 const displayHost = document.getElementById("timer-host");
                 displayHost.innerText = `⏳ ${tiempoRestanteHost}s`;
                 displayHost.style.color = "#ffeb3b";

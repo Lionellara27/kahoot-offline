@@ -110,7 +110,7 @@ class AdministradorJuego:
             self.votos_correctos += 1
             self.global_correctos += 1 # Suma al histórico
         else:
-            jugador["tiempo_total"] += 15.0 
+            jugador["tiempo_total"] += 20.0 
             self.votos_incorrectos += 1
             self.global_incorrectos += 1 # Suma al histórico
 

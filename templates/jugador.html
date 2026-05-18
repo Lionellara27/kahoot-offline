@@ -44,14 +44,14 @@
             <img src="/static/logo.jpg" alt="Logo ESFA" class="logo">
             <h2>¡Excelente, <span id="nombre-usuario" class="destacado"></span>!<br>¿Todo listo para jugar y repasar lo aprendido?</h2>
             <p>💡 Vas a tener algunas preguntas y cada opción correcta te va a sumar puntos.</p>
-            <p class="destacado">⚠️ ¡Tenés solo 15 segundos para responder cada una!</p>
+            <p class="destacado">⚠️ ¡Tenés solo 20 segundos para responder cada una!</p>
             <hr style="border-color: #444; margin: 20px 0;">
             <div class="espera-animada">⏳ Esperando a que inicie la partida...</div>
         </div>
 
         <div id="pantalla-juego" class="oculto">
             <h2>🎮 Tu Control</h2>
-            <div id="timer-pregunta" class="contador" style="color: #ffeb3b; font-size: 46px; margin-top: 5px; margin-bottom: 15px;">15</div>
+            <div id="timer-pregunta" class="contador" style="color: #ffeb3b; font-size: 46px; margin-top: 5px; margin-bottom: 15px;">20</div>
             
             <div class="pregunta-en-celu">
                 <span class="tag-pregunta">📋 PREGUNTA:</span>
@@ -75,7 +75,7 @@
         let ws;
         let nombreJugador = "";
         let temporizadorPregunta;
-        let tiempoRestantePregunta = 15;
+        let tiempoRestantePregunta = 20;
         let miVoto = ""; 
 
         function procesarIngreso() {
