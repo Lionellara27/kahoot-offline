@@ -8,9 +8,11 @@
         body { font-family: Arial, sans-serif; background-color: #111; color: white; padding: 20px; text-align: center; }
         .contenedor-host { max-width: 900px; margin: 0 auto; }
         .header-host { display: flex; justify-content: space-between; align-items: center; background: #222; padding: 15px 30px; border-radius: 12px; margin-bottom: 20px; gap: 15px; }
-        
+
+        /* Estilo del Reloj Timer Flotante para el Anfitrión */
         .timer-host-badge { font-size: 24px; font-weight: bold; color: #ffeb3b; background: #111; padding: 8px 18px; border-radius: 8px; min-width: 90px; border: 1px solid #444; transition: color 0.3s; }
-        
+
+        /* Panel de Preguntas */
         .panel-pregunta { background: #1e1e1e; border: 2px solid #444; padding: 25px; border-radius: 15px; margin-bottom: 25px; }
         .enunciado { font-size: 28px; font-weight: bold; margin-bottom: 20px; color: #ffeb3b; }
         .opciones-container { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
@@ -27,6 +29,7 @@
         .barra-ok { background: #4CAF50; height: 100%; display: flex; align-items: center; justify-content: center; font-weight: bold; transition: width 0.8s ease-in-out; width: 0%; color: white; text-shadow: 1px 1px 2px rgba(0,0,0,0.8); }
         .barra-err { background: #e21b3c; height: 100%; display: flex; align-items: center; justify-content: center; font-weight: bold; transition: width 0.8s ease-in-out; width: 0%; color: white; text-shadow: 1px 1px 2px rgba(0,0,0,0.8); }
 
+        /* Tabla de Clasificación */
         .tabla-ranking { width: 100%; border-collapse: collapse; margin-top: 15px; background: #222; border-radius: 10px; overflow: hidden; }
         .tabla-ranking th, .tabla-ranking td { padding: 12px 15px; text-align: center; font-size: 18px; }
         .tabla-ranking th { background-color: #333; color: #00fa9a; }
@@ -131,7 +134,8 @@
 
         ws.onmessage = (event) => {
             const datos = JSON.parse(event.data);
-            
+
+            // 1. Cuando el backend nos manda una nueva pregunta
             if (datos.evento === "MOSTRAR_PREGUNTA") {
                 const btnHost = document.getElementById("btn-accion-host");
                 btnHost.innerText = "Siguiente Pregunta ➡️";
@@ -148,12 +152,14 @@
                 document.getElementById("bloque-didactico").style.display = "none";
                 document.getElementById("barra-correctas").style.width = "0%";
                 document.getElementById("barra-incorrectas").style.width = "0%";
-                
+
+                //Guardamos la respuesta correcta en secreto apenas llega
                 respuestaCorrectaActiva = datos.correcta;
                 justificacionActiva = datos.justificacion;
                 votosCorrectosEnVivo = 0;
                 votosIncorrectosEnVivo = 0;
-                
+
+                // Sincronizar y arrancar el reloj del Host de 20 a 0 segundos
                 clearInterval(temporizadorHost);
                 tiempoRestanteHost = 20;
                 const displayHost = document.getElementById("timer-host");
@@ -168,7 +174,7 @@
                         displayHost.style.color = "#ff5555";
                         
                         ws.send(JSON.stringify({ "accion": "REVELAR_RESULTADOS" }));
-                        
+                        //MAGIA: El reloj llegó a 0, revelamos el cartel verde
                         if (respuestaCorrectaActiva) {
                             document.getElementById("letra-correcta").innerText = respuestaCorrectaActiva;
                             document.getElementById("respuesta-correcta-box").style.display = "block";
@@ -202,12 +208,13 @@
                     }
                 }, 1000);
             }
-            
+
             if (datos.evento === "ESTADISTICAS_VOTOS") {
                 votosCorrectosEnVivo = datos.correctos;
                 votosIncorrectosEnVivo = datos.incorrectos;
             }
-            
+
+            // Cuando el backend actualiza los puntos por detrás
             if (datos.evento === "ACTUALIZAR_RANKING") {
                 const tbody = document.getElementById("cuerpo-tabla");
                 tbody.innerHTML = ""; 
@@ -228,12 +235,14 @@
                     `;
                 });
             }
-
+            
+            //EL FINAL: Capturamos el cierre definitivo de la ronda 10
             if (datos.evento === "JUEGO_TERMINADO") {
                 clearInterval(temporizadorHost);
                 document.getElementById("timer-host").innerText = "🏁";
                 document.getElementById("contador-preguntas").innerText = "(Finalizado)";
-                
+
+                // Modificamos el bloque principal para celebrar
                 document.getElementById("pregunta-texto").innerText = "🎉 ¡Taller Finalizado! Mirá el podio y las estadísticas 🎉";
                 document.getElementById("contenedor-opciones").style.display = "none";
                 document.getElementById("respuesta-correcta-box").style.display = "none";
@@ -243,7 +252,8 @@
                 document.getElementById("titulo-ranking").innerText = "🏆 PODIO FINAL";
                 document.getElementById("ranking-seccion").style.display = "block";
                 document.getElementById("btn-alternar-vista").style.display = "inline-block";
-                
+
+                // Bloqueamos por completo el botón
                 const btn = document.getElementById("btn-accion-host");
                 btn.disabled = true;
                 btn.style.backgroundColor = "#444";
