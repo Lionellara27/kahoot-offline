@@ -11,13 +11,15 @@
         input { width: 85%; padding: 12px; font-size: 16px; border-radius: 8px; border: none; margin-bottom: 20px; text-align: center; }
         .btn-accion { background-color: #4CAF50; color: white; padding: 12px 30px; font-size: 18px; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; }
         .btn-accion:active { background-color: #3e8e41; }
-        
+
+        /* BOTONES ROJO | AZUL (Lado a lado en Grid Horizontal) */
         .grid-botones { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-top: 20px; }
         .btn-voto { padding: 45px 12px; font-size: 16px; font-weight: bold; border: none; border-radius: 12px; color: white; cursor: pointer; transition: all 0.2s; text-align: center; display: flex; align-items: center; justify-content: center; line-height: 1.3; }
         .btn-voto:disabled { cursor: not-allowed; transform: scale(0.98); }
         .red { background-color: #e21b3c; }
         .blue { background-color: #1368ce; }
-        
+
+        /* CAJA DE PREGUNTA EN EL CELULAR */
         .pregunta-en-celu { font-size: 16px; background-color: #1e1e1e; padding: 15px; border-radius: 10px; border: 1px solid #555; margin-bottom: 10px; text-align: left; line-height: 1.4; box-shadow: inset 0 2px 5px rgba(0,0,0,0.3); }
         .tag-pregunta { color: #ff9800; font-weight: bold; display: block; margin-bottom: 5px; font-size: 14px; letter-spacing: 1px; }
 
@@ -98,12 +100,12 @@
                 ws.onmessage = (event) => {
                 const datos = JSON.parse(event.data);
 
-                // 1️⃣ EVENTO: NUEVA PREGUNTA (Sincronizado a 20s y con reset de colores)
+                // NUEVA PREGUNTA (Sincronizado a 20s y con reset de colores)
                 if (datos.evento === "NUEVA_PREGUNTA") {
                     miVoto = ""; // Clave de Aylin para resetear el voto de la ronda anterior
                     document.getElementById("pantalla-espera").classList.add("oculto");
                     document.getElementById("pantalla-juego").classList.remove("oculto");
-                    
+                    // Inyectamos dinámicamente la pregunta y los textos en los botones horizontales
                     document.getElementById("texto-pregunta-celu").innerText = datos.enunciado;
                     document.getElementById("btn-a").innerText = `▲ A: ${datos.opcion_a}`;
                     document.getElementById("btn-b").innerText = `■ B: ${datos.opcion_b}`;
@@ -121,7 +123,7 @@
                     iniciarCuentaRegresivaPregunta();
                 }
                 
-                // 2️⃣ EVENTO: REVELAR CORRECTA (Bloque de Aylin para dar feedback instantáneo)
+                // REVELAR CORRECTA (Bloque by:Aylin para dar feedback instantáneo B) )
                 if (datos.evento === "REVELAR_CORRECTA") {
                     clearInterval(temporizadorPregunta);
                     activarBotones(false);
@@ -139,7 +141,7 @@
                     }
                 }
 
-                // 3️⃣ EVENTO: JUEGO TERMINADO (Tu bloque definitivo con el Fix del reloj)
+                // JUEGO TERMINADO CAPTURAMOS EL FIN DEL JUEGO EN EL CELULAR/NOTEBOOK de alumno by:lio
                 if (datos.evento === "JUEGO_TERMINADO") {
                     clearInterval(temporizadorPregunta); // 🛑 Fix crítico: frena el bucle para que no rompa el script
                     
@@ -166,7 +168,7 @@
                         `;
                     }
                     
-                    // Limpieza total del body y renderizado de tu tarjeta de cierre
+                    // Tarjeta final + logo UNRN abajo
                     document.body.innerHTML = `
                         <div style="font-family: Arial, sans-serif; background-color: #222; color: white; padding: 40px 20px; text-align: center; min-height: 100vh; display: flex; flex-direction: column; justify-content: center; align-items: center;">
                             
