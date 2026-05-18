@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Crear Nivel - Taller Offline</title>
+    <style>
+        body { font-family: Arial, sans-serif; background-color: #111; color: white; padding: 20px; text-align: center; }
+        .contenedor-admin { max-width: 700px; margin: 0 auto; background: #1e1e1e; border: 2px solid #444; padding: 30px; border-radius: 15px; text-align: left; box-shadow: 0 4px 15px rgba(0,0,0,0.5); }
+        h2 { color: #ffeb3b; text-align: center; margin-top: 0; }
+        .grupo-config { display: flex; gap: 15px; background: #2a2a2a; padding: 15px; border-radius: 10px; margin-bottom: 25px; align-items: flex-end; }
+        .grupo-config div { flex: 1; }
+        label { display: block; font-weight: bold; margin-bottom: 8px; color: #aaa; font-size: 15px; }
+        input, select, textarea { width: 100%; padding: 10px; border-radius: 6px; border: 1px solid #555; background: #333; color: white; font-size: 16px; box-sizing: border-box; }
+        .btn { background-color: #008CBA; color: white; padding: 12px; font-size: 16px; font-weight: bold; border: none; border-radius: 6px; cursor: pointer; transition: background 0.2s; }
+        .btn:hover { background-color: #006687; }
+        .btn-generar { width: 100%; height: 43px; background-color: #9b59b6; }
+        .btn-generar:hover { background-color: #8e44ad; }
+        .btn-guardar { background-color: #4CAF50; width: 100%; margin-top: 20px; font-size: 18px; padding: 15px; }
+        .btn-guardar:hover { background-color: #3e8e41; }
+        .pregunta-bloque { background: #252525; border-left: 5px solid #ffeb3b; padding: 20px; border-radius: 8px; margin-bottom: 20px; }
+        .enlace-volver { display: block; text-align: center; margin-top: 20px; color: #aaa; text-decoration: none; font-weight: bold; }
+        .enlace-volver:hover { color: #ffeb3b; }
+    </style>
+</head>
+<body>
+
+    <div class="contenedor-admin">
+        <h2>📄 Crear Nueva Trivia (Nivel)</h2>
+        
+        <div class="grupo-config">
+            <div>
+                <label>🎯 Número de Nivel:</label>
+                <select id="input-nivel">
+                    <option value="1">Nivel 1</option>
+                    <option value="2">Nivel 2</option>
+                    <option value="3">Nivel 3</option>
+                    <option value="4">Nivel 4</option>
+                    <option value="5">Nivel 5</option>
+                </select>
+            </div>
+            <div>
+                <label>❓ Cantidad de Preguntas:</label>
+                <input type="number" id="cantidad" min="1" max="30" value="5">
+            </div>
+            <div style="flex: 1.2;">
+                <button type="button" class="btn btn-generar" onclick="generarCasilleros()">🛠️ Generar Casilleros</button>
+            </div>
+        </div>
+
+        <form action="/admin/guardar-lote" method="POST" id="form-lote" style="display: none;">
+            <input type="hidden" name="nivel" id="form-nivel-oculto">
+            
+            <div id="contenedor-dinamico"></div>
+            
+            <button type="submit" class="btn btn-guardar">Guardar Tanda Completa 💾</button>
+        </form>
+
+        <a href="/panel" class="enlace-volver">⬅️ Volver al Panel de Control</a>
+    </div>
+
+<script>
+        // 🔒 Bloqueo de niveles existentes apenas carga la pantalla
+        document.addEventListener("DOMContentLoaded", async () => {
+            const respuesta = await fetch("/admin/api/niveles");
+            const nivelesExistentes = await respuesta.json(); // Devuelve ej: [1, 2]
+            
+            const select = document.getElementById("input-nivel");
+            const opciones = select.options;
+            let primerNivelLibre = null;
+            
+            // Recorremos las opciones del select (Nivel 1 al 5)
+            for (let i = 0; i < opciones.length; i++) {
+                const valorOp = parseInt(opciones[i].value);
+                
+                if (nivelesExistentes.includes(valorOp)) {
+                    // Si el nivel ya existe, lo desactivamos y le avisamos al profe
+                    opciones[i].disabled = true;
+                    opciones[i].innerText += " 🔒 (Ya creado)";
+                } else if (!primerNivelLibre) {
+                    // Guardamos el primer nivel que encontremos vacío
+                    primerNivelLibre = opciones[i].value;
+                }
+            }
+            
+            // Auto-seleccionamos el primer nivel disponible para que no quede parado en uno bloqueado
+            if (primerNivelLibre) {
+                select.value = primerNivelLibre;
+            } else {
+                // Si por alguna razón están los 5 llenos
+                document.querySelector(".btn-generar").disabled = true;
+                document.querySelector(".btn-generar").innerText = "⚠️ Capacidad Máxima Alcanzada";
+            }
+        });
+
+        // 🛠️ Tu función de generar casilleros intacta
+        function generarCasilleros() {
+            const cantidad = document.getElementById("cantidad").value;
+            const nivelElegido = document.getElementById("input-nivel").value;
+            const contenedor = document.getElementById("contenedor-dinamico");
+            const form = document.getElementById("form-lote");
+            
+            document.getElementById("form-nivel-oculto").value = nivelElegido;
+            contenedor.innerHTML = ""; // Limpiamos previos
+            
+            for (let i = 1; i <= cantidad; i++) {
+                contenedor.innerHTML += `
+                    <div class="pregunta-bloque">
+                        <h4 style="margin: 0 0 15px 0; color: #ffeb3b;">Pregunta N° ${i}</h4>
+                        <div style="margin-bottom: 12px;">
+                            <label>Enunciado:</label>
+                            <textarea name="enunciado" required placeholder="Escribí la pregunta..."></textarea>
+                        </div>
+                        <div style="display: flex; gap: 10px; margin-bottom: 12px;">
+                            <div style="flex: 1;">
+                                <label style="color: #e21b3c;">▲ Opción A:</label>
+                                <input type="text" name="opcion_a" required placeholder="Opción A">
+                            </div>
+                            <div style="flex: 1;">
+                                <label style="color: #1368ce;">■ Opción B:</label>
+                                <input type="text" name="opcion_b" required placeholder="Opción B">
+                            </div>
+                        </div>
+                        <div style="margin-bottom: 12px;">
+                            <label>Opción Correcta:</label>
+                            <select name="correcta">
+                                <option value="A">▲ Opción A (Roja)</option>
+                                <option value="B">■ Opción B (Azul)</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label>Justificación / Aclaración Didáctica:</label>
+                            <textarea name="justificacion" required placeholder="¿Por qué es la correcta?"></textarea>
+                        </div>
+                    </div>
+                `;
+            }
+            form.style.display = "block"; // Mostramos el formulario listo
+        }
+    </script>
+</body>
+</html>

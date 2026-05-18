@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Modificar Nivel - Taller Offline</title>
+    <style>
+        body { font-family: Arial, sans-serif; background-color: #111; color: white; padding: 20px; text-align: center; }
+        .contenedor-admin { max-width: 700px; margin: 0 auto; background: #1e1e1e; border: 2px solid #444; padding: 30px; border-radius: 15px; text-align: left; box-shadow: 0 4px 15px rgba(0,0,0,0.5); }
+        h2 { color: #ff9800; text-align: center; margin-top: 0; }
+        .grupo-config { display: flex; gap: 15px; background: #2a2a2a; padding: 15px; border-radius: 10px; margin-bottom: 25px; align-items: flex-end; }
+        .grupo-config div { flex: 1; }
+        label { display: block; font-weight: bold; margin-bottom: 8px; color: #aaa; font-size: 15px; }
+        input, select, textarea { width: 100%; padding: 10px; border-radius: 6px; border: 1px solid #555; background: #333; color: white; font-size: 16px; box-sizing: border-box; }
+        .btn { background-color: #ff9800; color: black; padding: 12px; font-size: 16px; font-weight: bold; border: none; border-radius: 6px; cursor: pointer; transition: background 0.2s; width: 100%; height: 43px; }
+        .btn:hover { background-color: #e68a00; }
+        .btn-guardar { background-color: #4CAF50; color: white; width: 100%; margin-top: 20px; font-size: 18px; padding: 15px; height: auto; }
+        .btn-guardar:hover { background-color: #3e8e41; }
+        .pregunta-bloque { background: #252525; border-left: 5px solid #ff9800; padding: 20px; border-radius: 8px; margin-bottom: 20px; }
+        .enlace-volver { display: block; text-align: center; margin-top: 20px; color: #aaa; text-decoration: none; font-weight: bold; }
+        .enlace-volver:hover { color: #ff9800; }
+    </style>
+</head>
+<body>
+
+    <div class="contenedor-admin">
+        <h2>📝 Modificar Trivia Existente</h2>
+        
+        <div class="grupo-config">
+            <div>
+                <label>🔍 Seleccioná qué nivel modificar:</label>
+                <select id="select-nivel-existente">
+                    </select>
+            </div>
+            <div>
+                <button type="button" class="btn" onclick="cargarPreguntasDeNivel()">📥 Cargar Preguntas</button>
+            </div>
+        </div>
+
+        <form action="/admin/actualizar-lote" method="POST" id="form-editar" style="display: none;">
+            <input type="hidden" name="nivel" id="form-nivel-oculto">
+            
+            <div id="contenedor-preguntas-viejas"></div>
+            
+            <button type="submit" class="btn btn-guardar">Confirmar y Guardar Cambios 💾</button>
+        </form>
+
+        <a href="/panel" class="enlace-volver">⬅️ Volver al Panel de Control</a>
+    </div>
+
+<script>
+        // Al cargar la pantalla, le pedimos al servidor la lista de niveles reales creados
+        document.addEventListener("DOMContentLoaded", async () => {
+            const respuesta = await fetch("/admin/api/niveles");
+            const niveles = await respuesta.json();
+            const select = document.getElementById("select-nivel-existente");
+            
+            if(niveles.length === 0) {
+                select.innerHTML = '<option value="">No hay niveles creados aún</option>';
+                return;
+            }
+            
+            select.innerHTML = niveles.map(n => `<option value="${n}">Nivel ${n}</option>`).join("");
+        });
+
+        // 🟢 CORREGIDO: Sintaxis limpia para la función asíncrona nativa
+        async function cargarPreguntasDeNivel() {
+            const nivel = document.getElementById("select-nivel-existente").value;
+            if(!nivel) return;
+            
+            document.getElementById("form-nivel-oculto").value = nivel;
+            
+            // Traemos las preguntas de ese nivel específico desde el backend
+            const respuesta = await fetch(`/admin/api/preguntas?nivel=${nivel}`);
+            const preguntas = await respuesta.json();
+            
+            const contenedor = document.getElementById("contenedor-preguntas-viejas");
+            contenedor.innerHTML = "";
+            
+            preguntas.forEach((preg, indice) => {
+                const i = indice + 1;
+                contenedor.innerHTML += `
+                    <div class="pregunta-bloque">
+                        <h4 style="margin: 0 0 15px 0; color: #ff9800;">Pregunta N° ${i}</h4>
+                        <div style="margin-bottom: 12px;">
+                            <label>Enunciado:</label>
+                            <textarea name="enunciado" required>${preg.enunciado}</textarea>
+                        </div>
+                        <div style="display: flex; gap: 10px; margin-bottom: 12px;">
+                            <div style="flex: 1;">
+                                <label style="color: #e21b3c;">▲ Opción A:</label>
+                                <input type="text" name="opcion_a" value="${preg.opcion_a}" required>
+                            </div>
+                            <div style="flex: 1;">
+                                <label style="color: #1368ce;">■ Opción B:</label>
+                                <input type="text" name="opcion_b" value="${preg.opcion_b}" required>
+                            </div>
+                        </div>
+                        <div style="margin-bottom: 12px;">
+                            <label>Opción Correcta:</label>
+                            <select name="correcta">
+                                <option value="A" ${preg.correcta === 'A' ? 'selected' : ''}>▲ Opción A</option>
+                                <option value="B" ${preg.correcta === 'B' ? 'selected' : ''}>■ Opción B</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label>Justificación / Aclaración Didáctica:</label>
+                            <textarea name="justificacion" required>${preg.justificacion}</textarea>
+                        </div>
+                    </div>
+                `;
+            });
+            
+            document.getElementById("form-editar").style.display = "block";
+        }
+    </script>
+</body>
+</html>

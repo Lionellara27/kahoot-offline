@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Panel de Administración - Carga de Preguntas</title>
+    <style>
+        body { font-family: Arial, sans-serif; background-color: #111; color: white; padding: 20px; text-align: center; }
+        .contenedor-admin { max-width: 600px; margin: 0 auto; background: #1e1e1e; border: 2px solid #444; padding: 30px; border-radius: 15px; text-align: left; box-shadow: 0 4px 15px rgba(0,0,0,0.5); }
+        h2 { color: #ffeb3b; text-align: center; margin-top: 0; margin-bottom: 25px; }
+        .grupo-formulario { margin-bottom: 20px; }
+        label { display: block; font-weight: bold; margin-bottom: 8px; color: #aaa; font-size: 16px; }
+        input[type="text"], select, textarea { width: 100%; padding: 12px; border-radius: 8px; border: 1px solid #555; background: #2a2a2a; color: white; font-size: 16px; box-sizing: border-box; }
+        input:focus, select:focus, textarea:focus { border-color: #008CBA; outline: none; box-shadow: 0 0 8px rgba(0, 140, 186, 0.5); }
+        textarea { resize: vertical; min-height: 80px; font-family: Arial, sans-serif; }
+        
+        .btn-guardar { background-color: #4CAF50; color: white; padding: 14px; font-size: 18px; font-weight: bold; border: none; border-radius: 8px; cursor: pointer; width: 100%; transition: background-color 0.2s; margin-top: 10px; }
+        .btn-guardar:hover { background-color: #3e8e41; }
+        
+        .enlace-volver { display: block; text-align: center; margin-top: 25px; color: #008CBA; text-decoration: none; font-weight: bold; font-size: 16px; transition: color 0.2s; }
+        .enlace-volver:hover { color: #00fa9a; }
+    </style>
+</head>
+<body>
+
+    <div class="contenedor-admin">
+        <h2>📝 Cargar Nueva Pregunta</h2>
+        
+        <form action="/admin/guardar-pregunta" method="POST">
+            
+            <div class="grupo-formulario">
+                <label for="nivel">🎯 Asignar a Nivel / Tanda:</label>
+                <select id="nivel" name="nivel" required>
+                    <option value="1">🎮 Nivel 1 (Trivia Inicial ESFA)</option>
+                    <option value="2">🎮 Nivel 2 (Trivia Avanzada)</option>
+                    <option value="3">🎮 Nivel 3 (Opcional)</option>
+                </select>
+            </div>
+
+            <div class="grupo-formulario">
+                <label for="enunciado">❓ Enunciado de la Pregunta:</label>
+                <textarea id="enunciado" name="enunciado" placeholder="Ej: Si medimos los niveles de glucemia..." required></textarea>
+            </div>
+
+            <div class="grupo-formulario">
+                <label for="opcion_a" style="color: #e21b3c;">▲ Opción A (Botón Rojo):</label>
+                <input type="text" id="opcion_a" name="opcion_a" placeholder="Escribí la primera opción..." required>
+            </div>
+
+            <div class="grupo-formulario">
+                <label for="opcion_b" style="color: #1368ce;">■ Opción B (Botón Azul):</label>
+                <input type="text" id="opcion_b" name="opcion_b" placeholder="Escribí la segunda opción..." required>
+            </div>
+
+            <div class="grupo-formulario">
+                <label for="correcta">✅ ¿Cuál es la opción correcta?</label>
+                <select id="correcta" name="correcta" required>
+                    <option value="A">▲ Opción A</option>
+                    <option value="B">■ Opción B</option>
+                </select>
+            </div>
+
+            <div class="grupo-formulario">
+                <label for="justificacion">💡 Aclaración / Justificación Didáctica (Para la TV):</label>
+                <textarea id="justificacion" name="justificacion" placeholder="Ej: Es un dato cuantitativo porque expresa una medida numérica directa..." required></textarea>
+            </div>
+
+            <button type="submit" class="btn-guardar">Guardar Pregunta 💾</button>
+            
+            <a href="/panel" class="enlace-volver">⬅️ Volver al Panel de Control</a>
+        </form>
+    </div>
+
+</body>
+</html>

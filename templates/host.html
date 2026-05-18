@@ -48,21 +48,65 @@
         .leyenda-grafico { text-align: left; font-size: 24px; font-weight: bold; }
 
         @keyframes fadeIn { from { opacity: 0; transform: translateY(-5px); } to { opacity: 1; transform: translateY(0); } }
+
+        /*Botones nuevo para volver a selec niveles y/o pasar de a 1! */
+        button:disabled {
+            background: #333 !important;
+            color: #666 !important;
+            cursor: not-allowed !important;
+            border-color: #444 !important;
+            box-shadow: none !important;
+        }
+        .btn-nav-host {
+            background-color: #d35400; /* Naranja cheto como tu boceto */
+            color: white;
+            padding: 10px 25px;
+            font-size: 16px;
+            font-weight: bold;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+        .btn-nav-host:hover {
+            background-color: #b34500;
+        }
     </style>
 </head>
 <body>
 
     <div class="contenedor-host">
-        <div class="header-host">
-            <div style="display: flex; gap: 15px; align-items: center;">
-                <img src="/static/logo.jpg" alt="Logo ESFA" style="height: 75px; width: auto; border-radius: 5px;">
-                <img src="/static/unrn.png" alt="Logo UNRN" style="height: 70px; width: auto; border-radius: 5px;">
+<div class="header-host" style="flex-direction: column; background: #1e1e1e; border: 1px solid #333; padding: 20px 30px;">
+            
+            <div style="display: flex; justify-content: space-between; align-items: center; width: 100%; gap: 15px;">
+                
+                <div style="text-align: left;">
+                    <div style="display: flex; gap: 10px; align-items: center; margin-bottom: 8px;">
+                        <img src="/static/logo.jpg" alt="Logo ESFA" style="height: 55px; width: auto; border-radius: 5px;">
+                        <img src="/static/unrn.png" alt="Logo UNRN" style="height: 50px; width: auto; border-radius: 5px;">
+                    </div>
+                    <a href="/panel" style="display: inline-block; background: #c0392b; color: white; padding: 6px 14px; border-radius: 20px; text-decoration: none; font-size: 13px; font-weight: bold; border: 1px solid #e74c3c;">
+                        ↩️ Volver al selector de niveles
+                    </a>
+                </div>
+
+                <div>
+                    <h1 style="color: white; margin: 0; font-size: 26px; letter-spacing: 1px;">🎓 TRIVIA INTERACTIVA</h1>
+                    <h3 style="color: #4CAF50; margin: 5px 0 0 0; font-size: 22px;"><span id="contador-preguntas">(Lobby)</span></h3>
+                </div>
+                
+                <div style="display: flex; gap: 12px; align-items: center;">
+                    <div id="timer-host" class="timer-host-badge">⏱️ 20s</div>
+                    <button id="btn-accion-host" class="btn-control btn-iniciar" onclick="siguientePregunta()">🚀 INICIAR TRIVIA</button>
+                </div>
             </div>
-            <h2>🎓 TRIVIA INTERACTIVA <span id="contador-preguntas" style="color: #00fa9a;">(Lobby)</span></h2>
-            
-            <div id="timer-host" class="timer-host-badge">⏱️ 20s</div>
-            
-            <button id="btn-accion-host" class="btn-control btn-iniciar" onclick="siguientePregunta()">🚀 INICIAR TRIVIA</button>
+
+            <div style="display: flex; justify-content: center; align-items: center; gap: 25px; margin-top: 15px; background: #111; padding: 8px; border-radius: 8px; width: 100%; box-sizing: border-box;">
+                <button id="nav-retroceder" class="btn-nav-host">◀ Retroceder</button>
+                <span id="nav-display-nivel" style="color: white; font-size: 20px; font-weight: bold; min-width: 140px; display: inline-block;">(NIVEL 1)</span>
+                <button id="nav-avanzar" class="btn-nav-host">Avanzar ▶</button>
+            </div>
+
         </div>
 
         <div id="bloque-trivia" class="panel-pregunta">
@@ -123,7 +167,13 @@
     </div>
 
     <script>
-        const ws = new WebSocket(`ws://${window.location.host}/ws/host`);
+        //const ws = new WebSocket(`ws://${window.location.host}/ws/host`); -> old! antes de poner contraseña para host y niveles de dificultad
+        // Leemos el nivel desde la barra de direcciones (ej: /host?nivel=2)
+        const urlParams = new URLSearchParams(window.location.search);
+        const nivel = urlParams.get('nivel') || 1;
+
+        // Se lo pasamos al WebSocket del backend
+        const ws = new WebSocket(`ws://${window.location.host}/ws/host?nivel=${nivel}`);
         let temporizadorHost;
         let tiempoRestanteHost = 20;
         
@@ -131,6 +181,44 @@
         let justificacionActiva = ""; 
         let votosCorrectosEnVivo = 0;
         let votosIncorrectosEnVivo = 0;
+
+        // =====================================================================
+        // CONTROLADOR DINÁMICO DE LAS FLECHAS DE NIVELES (BOCETO)
+    
+        document.addEventListener("DOMContentLoaded", async () => {
+            let nivelInt = parseInt(nivel);
+            
+            // Seteamos el texto central del nivel actual en tu barra nueva
+            document.getElementById("nav-display-nivel").innerText = `(NIVEL ${nivelInt})`;
+
+            // Le pedimos a la API la lista de niveles reales que existen en la BD
+            const respuesta = await fetch("/admin/api/niveles");
+            const nivelesExistentes = await respuesta.json(); // Ej: [1, 2, 5]
+
+            const indiceActual = nivelesExistentes.indexOf(nivelInt);
+            const btnRetroceder = document.getElementById("nav-retroceder");
+            const btnAvanzar = document.getElementById("nav-avanzar");
+
+            // Lógica para el botón Retroceder
+            if (indiceActual <= 0) {
+                btnRetroceder.disabled = true; // Si es el primero, se pone en gris
+            } else {
+                btnRetroceder.onclick = () => {
+                    const anterior = nivelesExistentes[indiceActual - 1];
+                    window.location.href = `/host?nivel=${anterior}`;
+                };
+            }
+
+            // Lógica para el botón Avanzar
+            if (indiceActual === -1 || indiceActual === nivelesExistentes.length - 1) {
+                btnAvanzar.disabled = true; // Si es el último, se pone en gris
+            } else {
+                btnAvanzar.onclick = () => {
+                    const siguiente = nivelesExistentes[indiceActual + 1];
+                    window.location.href = `/host?nivel=${siguiente}`;
+                };
+            }
+        });
 
         ws.onmessage = (event) => {
             const datos = JSON.parse(event.data);

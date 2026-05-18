@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Eliminar Nivel - Taller Offline</title>
+    <style>
+        body { font-family: Arial, sans-serif; background-color: #111; color: white; padding: 20px; text-align: center; }
+        .contenedor-admin { max-width: 500px; margin: 0 auto; background: #1e1e1e; border: 2px solid #444; padding: 30px; border-radius: 15px; box-shadow: 0 4px 15px rgba(0,0,0,0.5); }
+        h2 { color: #e74c3c; text-align: center; margin-top: 0; margin-bottom: 25px; }
+        label { display: block; font-weight: bold; margin-bottom: 12px; color: #aaa; font-size: 16px; text-align: left; }
+        select { width: 100%; padding: 12px; border-radius: 8px; border: 1px solid #555; background: #333; color: white; font-size: 16px; margin-bottom: 25px; }
+        .btn-borrar { background-color: #c0392b; color: white; padding: 15px; font-size: 18px; font-weight: bold; border: none; border-radius: 8px; cursor: pointer; width: 100%; transition: background 0.2s; }
+        .btn-borrar:hover { background-color: #a93226; }
+        .enlace-volver { display: block; text-align: center; margin-top: 25px; color: #aaa; text-decoration: none; font-weight: bold; }
+        .enlace-volver:hover { color: #e74c3c; }
+
+        /*ESTILOS DE LA VENTANA EMERGENTE (MODAL) */
+        .modal-overlay {
+            display: none; /* Oculto por defecto */
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background-color: rgba(0, 0, 0, 0.85); /* Fondo oscuro de fondo */
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+        }
+        .modal-content {
+            background: #252525;
+            border: 2px solid #e74c3c;
+            padding: 30px;
+            border-radius: 12px;
+            max-width: 420px;
+            width: 90%;
+            text-align: center;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.8);
+            animation: entradaModal 0.2s ease-out;
+        }
+        @keyframes entradaModal {
+            from { transform: scale(0.9); opacity: 0; }
+            to { transform: scale(1); opacity: 1; }
+        }
+        .modal-botones { display: flex; gap: 15px; margin-top: 25px; }
+        .btn-modal-ok { background: #c0392b; color: white; padding: 12px; flex: 1; border: none; border-radius: 6px; font-weight: bold; font-size: 16px; cursor: pointer; }
+        .btn-modal-ok:hover { background: #a93226; }
+        .btn-modal-cancel { background: #444; color: #ccc; padding: 12px; flex: 1; border: none; border-radius: 6px; font-weight: bold; font-size: 16px; cursor: pointer; }
+        .btn-modal-cancel:hover { background: #555; color: white; }
+    </style>
+</head>
+<body>
+
+    <div class="contenedor-admin">
+        <h2>🗑️ Eliminar Nivel Completo</h2>
+        
+        <form id="form-eliminar" action="/admin/eliminar-lote" method="POST">
+            <label for="select-eliminar">⚠️ Seleccioná qué nivel querés eliminar de la BD:</label>
+            <select id="select-eliminar" name="nivel" required>
+                </select>
+            
+            <button type="button" class="btn-borrar" onclick="solicitarConfirmacion()">Eliminar Nivel para Siempre 🚨</button>
+        </form>
+
+        <a href="/panel" class="enlace-volver">⬅️ Volver al Panel de Control</a>
+    </div>
+
+    <div id="contenedor-modal" class="modal-overlay">
+        <div class="modal-content">
+            <h3 style="color: #e74c3c; margin-top: 0; font-size: 22px; letter-spacing: 1px;">ATENCIÓN</h3>
+            <p id="modal-mensaje" style="font-size: 16px; line-height: 1.4; color: #eee;"></p>
+            <p style="font-size: 14px; color: #999; margin-bottom: 0;">Esta acción no se puede deshacer y va a limpiar todas las preguntas asociadas de la base de datos.</p>
+            
+            <div class="modal-botones">
+                <button type="button" class="btn-modal-ok" onclick="ejecutarBorradoReal()">Aceptar</button>
+                <button type="button" class="btn-modal-cancel" onclick="cerrarModal()">Cancelar</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Cargamos los niveles reales creados para no listar opciones vacías
+        document.addEventListener("DOMContentLoaded", async () => {
+            const respuesta = await fetch("/admin/api/niveles");
+            const niveles = await respuesta.json();
+            const select = document.getElementById("select-eliminar");
+            
+            if(niveles.length === 0) {
+                select.innerHTML = '<option value="">No hay niveles en la base de datos</option>';
+                const btn = document.querySelector(".btn-borrar");
+                btn.disabled = true;
+                btn.style.background = "#555";
+                btn.style.cursor = "not-allowed";
+                return;
+            }
+            
+            select.innerHTML = niveles.map(n => `<option value="${n}">Nivel ${n}</option>`).join("");
+        });
+
+        // Intercepta la acción del docente y despliega la ventana emergente web
+        function solicitarConfirmacion() {
+            const nivel = document.getElementById("select-eliminar").value;
+            if(!nivel) return;
+
+            // Renderizamos dinámicamente el mensaje con el número de nivel seleccionado
+            document.getElementById("modal-mensaje").innerHTML = `¿Estás seguro/a de que querés borrar el <strong>Nivel ${nivel}</strong> por completo?`;
+            
+            // Usamos flex para activar el centrado absoluto definido en los estilos CSS
+            document.getElementById("contenedor-modal").style.display = "flex";
+        }
+
+        // Oculta el componente modal de la pantalla si se cancela la operación
+        function cerrarModal() {
+            document.getElementById("contenedor-modal").style.display = "none";
+        }
+
+        // Envía el formulario POST real hacia FastAPI de forma controlada
+        function ejecutarBorradoReal() {
+            document.getElementById("form-eliminar").submit();
+        }
+    </script>
+</body>
+</html>
