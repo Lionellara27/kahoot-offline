@@ -1,5 +1,5 @@
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Query, Form, Cookie
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 import json
 import time # Reloj -> esto para medir el tiempo que tardan en responder los chicos
@@ -30,6 +30,7 @@ with open("templates/admin_eliminar.html", "r", encoding="utf-8") as f:
     HTML_ELIMINAR = f.read()
 
 # GESTOR DE CONEXIONES Y LÓGICA CENTRAL DEL JUEGO (PERSISTENTE)
+# GESTOR DE CONEXIONES Y LÓGICA CENTRAL DEL JUEGO (PERSISTENTE)
 class AdministradorJuego:
     def __init__(self):
         self.host_socket: WebSocket = None
@@ -53,28 +54,34 @@ class AdministradorJuego:
     async def conectar_host(self, websocket: WebSocket):
         await websocket.accept()
         self.host_socket = websocket
-        print("🖥️ ¡Pantalla Principal (Host) conectada con éxito!") #para ver en consola si todo va bien
+        print("🖥️ ¡Pantalla Principal (Host) conectada con éxito!") 
         await self.enviar_ranking_actualizado()
 
     async def conectar_jugador(self, websocket: WebSocket, nombre: str):
         await websocket.accept()
-        # Registramos la nueva conexión física del celular/notebook
         self.conexiones[websocket] = nombre
 
-        # -->CONTROL DE PERSISTENCIA:
-        # Si el alumno es nuevo, le creamos el perfil desde cero.
         if nombre not in self.ranking:
             self.ranking[nombre] = {"puntos": 0, "tiempo_total": 0.0}
-            print(f"📱📱 El alumno '{nombre}' se ha unido por primera vez.") #uso el emoji y el print para saber de donde se conecta y que hace
+            print(f"📱📱 El alumno '{nombre}' se ha unido por primera vez.") 
         else:
-            # Si ya existía en el ranking, conserva sus puntos intactos!
-            print(f"🔄🔄 ¡Reconexión detectada! El alumno '{nombre}' recuperó su sesión y sus puntos.")
+            print(f"🔄🔄 ¡Reconexión detectada! El alumno '{nombre}' recuperó su sesión.")
+        
+        # 🎮 ELEGANT REPLAY FIX: Al conectarse, le avisamos al celu en qué estado está el Lobby
+        # Si la trivia aún no arrancó, le gatillamos que el lobby está listo para usar
+        if self.indice_pregunta_actual == -1:
+            try:
+                await websocket.send_text(json.dumps({"evento": "LOBBY_ABIERTO"}))
+            except:
+                pass
+
         await self.enviar_ranking_actualizado()
 
     async def desconectar_jugador(self, websocket: WebSocket):
         if websocket in self.conexiones:
             del self.conexiones[websocket] 
             await self.enviar_ranking_actualizado()
+
     async def avanzar_pregunta(self):
         if not self.preguntas:
             return
@@ -83,26 +90,9 @@ class AdministradorJuego:
         self.votos_incorrectos = 0
         self.indice_pregunta_actual += 1
         
-        # CONTROL DE FIN DE JUEGO (SECCIÓN CORREGIDA by:Lio) si llegamos a la ultilima pregunta termina
+        # CONTROL DE FIN DE JUEGO (Si llegamos al final por las buenas)
         if self.indice_pregunta_actual >= len(self.preguntas):
-            #PRIMERO 1. Avisamos al Host para que muestre el podio definitivo en la TV(osea mostrar pantalla host)
-            if self.host_socket:
-                await self.host_socket.send_text(json.dumps({
-                    "evento": "JUEGO_TERMINADO",
-                    "total_ok": self.global_correctos,
-                    "total_err": self.global_incorrectos
-                }))
-            
-            #SEGUNDO 2. Recorremos cada celular/notebook conectado y le mandamos su puntaje final personalizado
-            for cliente_ws, nombre in self.conexiones.items():
-                try:
-                    jugador_data = self.ranking.get(nombre, {"puntos": 0})
-                    await cliente_ws.send_text(json.dumps({
-                        "evento": "JUEGO_TERMINADO",
-                        "puntos": jugador_data["puntos"]
-                    }))
-                except:
-                    pass
+            await self.finalizar_juego()
             return
             
         pregunta = self.preguntas[self.indice_pregunta_actual]
@@ -146,11 +136,11 @@ class AdministradorJuego:
             jugador["puntos"] += 10  
             jugador["tiempo_total"] += tiempo_respuesta  
             self.votos_correctos += 1
-            self.global_correctos += 1 # Suma al histórico
+            self.global_correctos += 1 
         else:
             jugador["tiempo_total"] += 20.0 
             self.votos_incorrectos += 1
-            self.global_incorrectos += 1 # Suma al histórico
+            self.global_incorrectos += 1 
 
         if self.host_socket:
             await self.host_socket.send_text(json.dumps({
@@ -159,20 +149,61 @@ class AdministradorJuego:
                 "incorrectos": self.votos_incorrectos
             }))
             
-        # ACÁ YA NO HAY NADA MÁS. No se envía ningún mensaje de revelar al Host.
         await self.enviar_ranking_actualizado()
 
     async def revelar_resultados(self):
         if self.indice_pregunta_actual >= 0 and self.indice_pregunta_actual < len(self.preguntas):
-            correcta = self.preguntas[self.indice_pregunta_actual]["correcta"]
+            pregunta = self.preguntas[self.indice_pregunta_actual]
+            correcta = pregunta["correcta"]
+            justificacion = pregunta["justificacion"]
+            
+            # 🎯 FIX CRÍTICO JUGADOR: Mandamos la correcta Y LA JUSTIFICACIÓN para que la renderice en los celus
             for cliente_ws in self.conexiones.keys():
                 try:
                     await cliente_ws.send_text(json.dumps({
                         "evento": "REVELAR_CORRECTA",
-                        "correcta": correcta
+                        "correcta": correcta,
+                        "justificacion": justificacion
                     }))
                 except:
                     pass
+
+    # 🛑 BUG 2 Y 3: MÉTODO ÚNICO PARA MANEJAR EL FIN DEL JUEGO (NORMAL O FORZADO)
+    async def finalizar_juego(self):
+        # Calculamos cuántas interacciones totales se quedaron colgadas (Sin Responder)
+        # Total interacciones esperadas = cantidad de alumnos jugando x cantidad de preguntas que pasaron
+        total_alumnos = len(self.ranking)
+        preguntas_jugadas = max(1, self.indice_pregunta_actual if self.indice_pregunta_actual < len(self.preguntas) else len(self.preguntas))
+        esperados = total_alumnos * preguntas_jugadas
+        votos_totales = self.global_correctos + self.global_incorrectos
+        global_sin_responder = max(0, esperados - votos_totales)
+
+        # 1. Avisamos al Host con la data del Gráfico Triple
+        if self.host_socket:
+            await self.host_socket.send_text(json.dumps({
+                "evento": "JUEGO_TERMINADO",
+                "total_ok": self.global_correctos,
+                "total_err": self.global_incorrectos,
+                "total_sr": global_sin_responder
+            }))
+        
+        # 2. Mandamos el cierre a cada dispositivo celular/notebook
+        for cliente_ws, nombre in self.conexiones.items():
+            try:
+                jugador_data = self.ranking.get(nombre, {"puntos": 0})
+                await cliente_ws.send_text(json.dumps({
+                    "evento": "JUEGO_TERMINADO",
+                    "puntos": jugador_data["puntos"]
+                }))
+            except:
+                pass
+
+        # 🎮 LOBBY REPLAY TRIGGER: Desparramamos el evento masivo para activar el botón verde de "Jugar de nuevo"
+        for cliente_ws in self.conexiones.keys():
+            try:
+                await cliente_ws.send_text(json.dumps({"evento": "LOBBY_ABIERTO"}))
+            except:
+                pass
 
     async def enviar_ranking_actualizado(self):
         if not self.host_socket:
@@ -197,22 +228,87 @@ def vista_login():
     <!DOCTYPE html>
     <html>
     <head>
-        <meta charset="UTF-8"><title>Login Docente</title>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Login Docente</title>
         <style>
-            body { font-family: Arial; background: #1a1a1a; color: white; text-align: center; padding-top: 100px; }
-            .caja { max-width: 350px; margin: 0 auto; background: #2a2a2a; padding: 30px; border-radius: 12px; border: 1px solid #444; }
-            input { width: 90%; padding: 10px; margin: 15px 0; border-radius: 6px; border: 1px solid #555; background: #333; color: white; text-align: center; }
-            button { background: #008CBA; color: white; padding: 10px; border: none; border-radius: 6px; width: 95%; font-weight: bold; cursor: pointer; }
+            body { font-family: Arial, sans-serif; background: #1a1a1a; color: white; text-align: center; padding-top: 100px; margin: 0; }
+            .caja { max-width: 350px; margin: 0 auto; background: #2a2a2a; padding: 30px; border-radius: 12px; border: 1px solid #444; box-shadow: 0px 4px 15px rgba(0,0,0,0.5); position: relative; }
+            h2 { margin-top: 0; color: #ffeb3b; }
+            input { width: 90%; padding: 12px; margin: 15px 0; border-radius: 6px; border: 1px solid #555; background: #333; color: white; text-align: center; font-size: 16px; box-sizing: border-box; }
+            input:focus { border-color: #008CBA; outline: none; }
+            button { background: #008CBA; color: white; padding: 12px; border: none; border-radius: 6px; width: 90%; font-weight: bold; cursor: pointer; font-size: 16px; transition: background 0.2s; }
+            button:hover { background: #007096; }
+            
+            /* 🚨 Estilo del nuevo cartel flotante estético */
+            .alerta-error {
+                display: none;
+                background-color: #e21b3c;
+                color: white;
+                padding: 12px;
+                border-radius: 6px;
+                font-weight: bold;
+                margin-top: 15px;
+                font-size: 14px;
+                box-shadow: 0px 2px 8px rgba(0,0,0,0.3);
+                animation: sacudida 0.3s ease-in-out;
+            }
+            @keyframes sacudida {
+                0%, 100% { transform: translateX(0); }
+                20%, 60% { transform: translateX(-6px); }
+                40%, 80% { transform: translateX(6px); }
+            }
         </style>
     </head>
     <body>
         <div class="caja">
             <h2>🔐 Panel Docente</h2>
-            <form action="/login" method="post">
-                <input type="password" name="clave" placeholder="Contraseña..." required autocomplete="off">
+            <form id="form-login" onsubmit="enviarLogin(event)">
+                <input type="password" id="clave" placeholder="Contraseña..." required autocomplete="off">
                 <button type="submit">Ingresar</button>
             </form>
+            
+            <div id="cartel-error" class="alerta-error">❌ Contraseña incorrecta</div>
         </div>
+
+        <script>
+            async function enviarLogin(event) {
+                event.preventDefault(); // Evita que la página se recargue de forma fea
+                const claveInput = document.getElementById("clave").value;
+                const cartel = document.getElementById("cartel-error");
+                
+                // Ocultamos el cartel por si estaba visible de un intento anterior
+                cartel.style.display = "none";
+
+                // Enviamos los datos por atrás (Fetch API) simulando el formulario
+                const formData = new FormData();
+                formData.append("clave", claveInput);
+
+                try {
+                    const response = await fetch("/login", {
+                        method: "POST",
+                        body: formData
+                    });
+
+                    // Si el servidor redirige con éxito (303), seguimos la ruta al panel
+                    if (response.redirected) {
+                        window.location.href = response.url;
+                    } else {
+                        // Si no redirige, significa que devolvió el error
+                        mostrarError();
+                    }
+                } catch (error) {
+                    mostrarError();
+                }
+            }
+
+            function mostrarError() {
+                const cartel = document.getElementById("cartel-error");
+                cartel.style.display = "block";
+                document.getElementById("clave").value = ""; // Limpia el input
+                document.getElementById("clave").focus();
+            }
+        </script>
     </body>
     </html>
     """)
@@ -223,7 +319,8 @@ def procesar_login(clave: str = Form(...)):
         respuesta = RedirectResponse(url="/panel", status_code=303)
         respuesta.set_cookie(key="autorizado", value="si", httponly=True)
         return respuesta
-    return HTMLResponse(content="<script>alert('❌ Clave incorrecta'); window.location='/login';</script>")
+    # 🎯 Ajuste clave: si falla, devolvemos un código HTTP 401 (No autorizado) para que el JavaScript lo atrape
+    return JSONResponse(status_code=401, content={"error": "Clave incorrecta"})
 
 @app.get("/panel")
 def vista_panel(autorizado: str = Cookie(None)):
@@ -405,9 +502,9 @@ async def procesar_eliminar_lote(nivel: int = Form(...), autorizado: str = Cooki
 # =====================================================================
 
 @app.websocket("/ws/host")
-async def ws_host(websocket: WebSocket, nivel: int = 1): # 🎯 Ahora recibe el nivel dinámico de la TV
+async def ws_host(websocket: WebSocket, nivel: int = 1): # 🎯 Recibe el nivel dinámico de la TV
     
-    # 💥 Pisanos las preguntas del juego con las del nivel elegido antes de conectar
+    # 💥 Pisamos las preguntas del juego con las del nivel elegido antes de conectar
     controlador.preguntas = obtener_preguntas_por_nivel(nivel)
     controlador.indice_pregunta_actual = -1 # Reseteamos por seguridad
     
@@ -416,13 +513,27 @@ async def ws_host(websocket: WebSocket, nivel: int = 1): # 🎯 Ahora recibe el 
         while True:
             msg = await websocket.receive_text()
             datos = json.loads(msg)
+            
             if datos.get("accion") == "SIGUIENTE_PREGUNTA":
                 await controlador.avanzar_pregunta()
+                
             elif datos.get("accion") == "REVELAR_RESULTADOS":
                 await controlador.revelar_resultados()
+                
+            # 🎯 BUG 2: ATRACHAMOS EL BOTÓN ROJO DE EMERGENCIA DEL PROFE
+            elif datos.get("accion") == "FORZAR_FIN_TRIVIA":
+                # Verificamos si tu controlador ya tiene un método de cierre.
+                # Si se llama distinto (ej: finalizar_juego), cambiale el nombre acá:
+                if hasattr(controlador, "finalizar_juego"):
+                    await controlador.finalizar_juego()
+                elif hasattr(controlador, "terminar_trivia"):
+                    await controlador.terminar_trivia()
+                else:
+                    # Si no existía un método genérico, lo disparamos directo emitiendo el evento
+                    await controlador.enviar_final_juego()
+
     except WebSocketDisconnect:
         controlador.host_socket = None
-
 
 @app.websocket("/ws/jugador")
 async def ws_jugador(websocket: WebSocket, nombre: str = Query(...)):

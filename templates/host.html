@@ -101,12 +101,17 @@
                 </div>
             </div>
 
-            <div style="display: flex; justify-content: center; align-items: center; gap: 25px; margin-top: 15px; background: #111; padding: 8px; border-radius: 8px; width: 100%; box-sizing: border-box;">
-                <button id="nav-retroceder" class="btn-nav-host">◀ Retroceder</button>
-                <span id="nav-display-nivel" style="color: white; font-size: 20px; font-weight: bold; min-width: 140px; display: inline-block;">(NIVEL 1)</span>
-                <button id="nav-avanzar" class="btn-nav-host">Avanzar ▶</button>
+                <div style="display: flex; justify-content: space-between; align-items: center; background: #111; padding: 12px 20px; border-radius: 8px; width: 100%; box-sizing: border-box; margin-top: 15px;">
+                
+                <div style="display: flex; align-items: center; gap: 15px;">
+                    <button id="nav-retroceder" class="btn-nav-host">◀ Retroceder</button>
+                    <span id="nav-display-nivel" style="color: white; font-size: 20px; font-weight: bold; min-width: 110px; display: inline-block; text-align: center;">(NIVEL 1)</span>
+                    <button id="nav-avanzar" class="btn-nav-host">Avanzar ▶</button>
+                </div>
+                
+                <button id="btn-finalizar-emergencia" class="btn-nav-host" style="background-color: #c0392b; margin: 0;" onclick="forzarFinTrivia()">🛑 Finalizar Trivia</button>
+                
             </div>
-
         </div>
 
         <div id="bloque-trivia" class="panel-pregunta">
@@ -156,23 +161,28 @@
                 <div id="mi-grafico-torta" class="grafico-torta"></div>
                 <div class="leyenda-grafico">
                     <p style="color: #4CAF50; margin-bottom: 10px;">✅ Aciertos: <span id="txt-tot-ok">0</span></p>
-                    <p style="color: #e21b3c; margin-top: 0;">❌ Errores: <span id="txt-tot-err">0</span></p>
+                    <p style="color: #e21b3c; margin-top: 0; margin-bottom: 10px;">❌ Errores: <span id="txt-tot-err">0</span></p>
+                    <p style="color: #ff9800; margin-top: 0;">⏳ Sin Responder: <span id="txt-tot-sr">0</span></p> 
                     <hr style="border-color: #555;">
-                    <p style="font-size: 20px; color: #aaa;">Total de respuestas: <span id="txt-tot-votos">0</span></p>
+                    <p style="font-size: 20px; color: #aaa;">Total de alumnos: <span id="txt-tot-votos">0</span></p>
                 </div>
             </div>
         </div>
 
         <button id="btn-alternar-vista" class="btn-control btn-toggle" onclick="alternarVistasFinales()">Ver Gráfico de Torta 📊</button>
-    </div>
+        <button id="btn-machete-docente" class="btn-control btn-toggle" style="background-color: #00fa9a; color: black;" onclick="mostrarMachetePreguntas()">Mostrar Respuestas 📋</button>
 
-    <script>
-        //const ws = new WebSocket(`ws://${window.location.host}/ws/host`); -> old! antes de poner contraseña para host y niveles de dificultad
-        // Leemos el nivel desde la barra de direcciones (ej: /host?nivel=2)
+        <div id="panel-machete-respuestas" style="display: none; margin-top: 25px; text-align: left; background: #1e1e1e; border: 2px solid #555; padding: 20px; border-radius: 15px;">
+            <h3 style="color: #ffeb3b; text-align: center; margin-top: 0;">📖 REPASO DIDÁCTICO DE PREGUNTAS</h3>
+            <div id="lista-machete-preguntas"></div>
+        </div>
+    </div> 
+
+
+<script>
         const urlParams = new URLSearchParams(window.location.search);
         const nivel = urlParams.get('nivel') || 1;
 
-        // Se lo pasamos al WebSocket del backend
         const ws = new WebSocket(`ws://${window.location.host}/ws/host?nivel=${nivel}`);
         let temporizadorHost;
         let tiempoRestanteHost = 20;
@@ -182,49 +192,69 @@
         let votosCorrectosEnVivo = 0;
         let votosIncorrectosEnVivo = 0;
 
+        // 🧠 MEMORIA LOCAL DEL HOST: Guarda las preguntas que van pasando para armar el machete final
+        let preguntasPasadas = [];
+        let cantidadJugadoresEnLobby = 0;
+
         // =====================================================================
-        // CONTROLADOR DINÁMICO DE LAS FLECHAS DE NIVELES (BOCETO)
-    
+        // CONTROLADOR DINÁMICO DE LAS FLECHAS DE NIVELES
+        // =====================================================================
         document.addEventListener("DOMContentLoaded", async () => {
             let nivelInt = parseInt(nivel);
-            
-            // Seteamos el texto central del nivel actual en tu barra nueva
             document.getElementById("nav-display-nivel").innerText = `(NIVEL ${nivelInt})`;
 
-            // Le pedimos a la API la lista de niveles reales que existen en la BD
             const respuesta = await fetch("/admin/api/niveles");
-            const nivelesExistentes = await respuesta.json(); // Ej: [1, 2, 5]
+            const nivelesExistentes = await respuesta.json(); 
 
             const indiceActual = nivelesExistentes.indexOf(nivelInt);
             const btnRetroceder = document.getElementById("nav-retroceder");
             const btnAvanzar = document.getElementById("nav-avanzar");
 
-            // Lógica para el botón Retroceder
+            // Lógica para el botón Retroceder con Advertencia (Bug 4)
             if (indiceActual <= 0) {
-                btnRetroceder.disabled = true; // Si es el primero, se pone en gris
+                btnRetroceder.disabled = true;
             } else {
                 btnRetroceder.onclick = () => {
-                    const anterior = nivelesExistentes[indiceActual - 1];
-                    window.location.href = `/host?nivel=${anterior}`;
+                    if (validarCambioNivel()) {
+                        const anterior = nivelesExistentes[indiceActual - 1];
+                        window.location.href = `/host?nivel=${anterior}`;
+                    }
                 };
             }
 
-            // Lógica para el botón Avanzar
+            // Lógica para el botón Avanzar con Advertencia (Bug 4)
             if (indiceActual === -1 || indiceActual === nivelesExistentes.length - 1) {
-                btnAvanzar.disabled = true; // Si es el último, se pone en gris
+                btnAvanzar.disabled = true;
             } else {
                 btnAvanzar.onclick = () => {
-                    const siguiente = nivelesExistentes[indiceActual + 1];
-                    window.location.href = `/host?nivel=${siguiente}`;
+                    if (validarCambioNivel()) {
+                        const siguiente = nivelesExistentes[indiceActual + 1];
+                        window.location.href = `/host?nivel=${siguiente}`;
+                    }
                 };
             }
         });
 
+        // Función de seguridad para el Lobby (Bug 4)
+        function validarCambioNivel() {
+            if (cantidadJugadoresEnLobby > 0) {
+                return confirm("⚠️ ¿Estás seguro de realizar esta acción? Hay alumnos en el lobby esperando. Si cambiás de nivel, la sala se reiniciará y los pibes deberán re-conectarse.");
+            }
+            return true;
+        }
+
+        // =====================================================================
+        // RECEPCIÓN DE EVENTOS WEBSOCKET
+        // =====================================================================
         ws.onmessage = (event) => {
             const datos = JSON.parse(event.data);
 
             // 1. Cuando el backend nos manda una nueva pregunta
             if (datos.evento === "MOSTRAR_PREGUNTA") {
+                // 🛑 CORTE DE NAVEGACIÓN (Bug 2): Ponemos las flechas en gris cuando inicia la trivia
+                document.getElementById("nav-retroceder").disabled = true;
+                document.getElementById("nav-avanzar").disabled = true;
+
                 const btnHost = document.getElementById("btn-accion-host");
                 btnHost.innerText = "Siguiente Pregunta ➡️";
                 btnHost.classList.remove("btn-iniciar");
@@ -241,13 +271,21 @@
                 document.getElementById("barra-correctas").style.width = "0%";
                 document.getElementById("barra-incorrectas").style.width = "0%";
 
-                //Guardamos la respuesta correcta en secreto apenas llega
                 respuestaCorrectaActiva = datos.correcta;
                 justificacionActiva = datos.justificacion;
                 votosCorrectosEnVivo = 0;
                 votosIncorrectosEnVivo = 0;
 
-                // Sincronizar y arrancar el reloj del Host de 20 a 0 segundos
+                // Guardamos en la memoria del host para el machete pedagógico final (Bug 3)
+                if (!preguntasPasadas.some(p => p.enunciado === datos.enunciado)) {
+                    preguntasPasadas.push({
+                        enunciado: datos.enunciado,
+                        correcta: datos.correcta,
+                        opcion_texto: datos.correcta === "A" ? datos.opcion_a : datos.opcion_b,
+                        justificacion: datos.justificacion
+                    });
+                }
+
                 clearInterval(temporizadorHost);
                 tiempoRestanteHost = 20;
                 const displayHost = document.getElementById("timer-host");
@@ -262,7 +300,7 @@
                         displayHost.style.color = "#ff5555";
                         
                         ws.send(JSON.stringify({ "accion": "REVELAR_RESULTADOS" }));
-                        //MAGIA: El reloj llegó a 0, revelamos el cartel verde
+                        
                         if (respuestaCorrectaActiva) {
                             document.getElementById("letra-correcta").innerText = respuestaCorrectaActiva;
                             document.getElementById("respuesta-correcta-box").style.display = "block";
@@ -290,9 +328,7 @@
                         }
                     } else {
                         displayHost.innerText = `⏳ ${tiempoRestanteHost}s`;
-                        if (tiempoRestanteHost <= 3) {
-                            displayHost.style.color = "#ff3333";
-                        }
+                        if (tiempoRestanteHost <= 3) displayHost.style.color = "#ff3333";
                     }
                 }, 1000);
             }
@@ -302,10 +338,13 @@
                 votosIncorrectosEnVivo = datos.incorrectos;
             }
 
-            // Cuando el backend actualiza los puntos por detrás
+            // Cuando el backend actualiza la lista de conectados o puntos
             if (datos.evento === "ACTUALIZAR_RANKING") {
                 const tbody = document.getElementById("cuerpo-tabla");
                 tbody.innerHTML = ""; 
+                
+                // Mapeamos cuántos alumnos hay acoplados en el lobby actual
+                cantidadJugadoresEnLobby = datos.ranking.length;
                 
                 datos.ranking.forEach((jugador, indice) => {
                     let medalla = indice + 1;
@@ -324,48 +363,56 @@
                 });
             }
             
-            //EL FINAL: Capturamos el cierre definitivo de la ronda 10
+            // EL FINAL: Capturamos el cierre definitivo (Bug 3 optimizado con Sin Responder)
             if (datos.evento === "JUEGO_TERMINADO") {
                 clearInterval(temporizadorHost);
                 document.getElementById("timer-host").innerText = "🏁";
                 document.getElementById("contador-preguntas").innerText = "(Finalizado)";
 
-                // Modificamos el bloque principal para celebrar
                 document.getElementById("pregunta-texto").innerText = "🎉 ¡Taller Finalizado! Mirá el podio y las estadísticas 🎉";
                 document.getElementById("contenedor-opciones").style.display = "none";
                 document.getElementById("respuesta-correcta-box").style.display = "none";
                 document.getElementById("bloque-didactico").style.display = "none";
                 
-                // Mostrar Podio y botón
                 document.getElementById("titulo-ranking").innerText = "🏆 PODIO FINAL";
                 document.getElementById("ranking-seccion").style.display = "block";
+                
+                // Habilitamos los dos botones de cierre solicitados
                 document.getElementById("btn-alternar-vista").style.display = "inline-block";
+                document.getElementById("btn-machete-docente").style.display = "inline-block";
 
-                // Bloqueamos por completo el botón
+                // Apagamos los controles de arriba de forma definitiva
                 const btn = document.getElementById("btn-accion-host");
                 btn.disabled = true;
-                btn.style.backgroundColor = "#444";
-                btn.style.color = "#888";
-                btn.style.cursor = "not-allowed";
                 btn.innerText = "Taller Finalizado 🔒";
+                document.getElementById("btn-finalizar-emergencia").disabled = true;
 
-                // Configuracion de grafico de torta
-                let ok = datos.total_ok;
-                let err = datos.total_err;
-                let total = ok + err;
+                // 📊 CÁLCULO DE GRÁFICO TRIPLE (Bug 3)
+                let ok = datos.total_ok || 0;
+                let err = datos.total_err || 0;
+                // Calculamos los Sin Responder restando las respuestas al total general de interacciones
+                let totalAlumnos = cantidadJugadoresEnLobby;
+                let sr = datos.total_sr || Math.max(0, (totalAlumnos * preguntasPasadas.length) - (ok + err));
+                let totalMuestras = ok + err + sr;
                 
                 document.getElementById("txt-tot-ok").innerText = ok;
                 document.getElementById("txt-tot-err").innerText = err;
-                document.getElementById("txt-tot-votos").innerText = total;
+                document.getElementById("txt-tot-sr").innerText = sr; // Render en la interfaz
+                document.getElementById("txt-tot-votos").innerText = totalAlumnos;
 
-                let porcentajeOk = 0;
-                if (total > 0) {
-                    porcentajeOk = (ok / total) * 100;
+                let pOk = 0;
+                let pErr = 0;
+                let pSr = 0;
+
+                if (totalMuestras > 0) {
+                    pOk = (ok / totalMuestras) * 100;
+                    pErr = (err / totalMuestras) * 100;
+                    pSr = 100 - (pOk + pErr);
                 }
                 
-                // Porcentajes de aciertos en verde, y el resto rojo
+                // 🎨 Inyección del gráfico de torta de 3 colores (Verde, Rojo y Naranja para SR)
                 document.getElementById("mi-grafico-torta").style.background = 
-                    `conic-gradient(#4CAF50 0% ${porcentajeOk}%, #e21b3c ${porcentajeOk}% 100%)`;
+                    `conic-gradient(#4CAF50 0% ${pOk}%, #e21b3c ${pOk}% ${pOk + pErr}%, #ff9800 ${pOk + pErr}% 100%)`;
             }
         };
 
@@ -373,12 +420,20 @@
             ws.send(JSON.stringify({ "accion": "SIGUIENTE_PREGUNTA" }));
         }
 
-        // Funcion para alternanr las pantallas
+        // 🛑 BOTÓN ROJO DE EMERGENCIA (Bug 2)
+        function forzarFinTrivia() {
+            if (confirm("⚠️ ¿Querés finalizar la trivia en seco ahora mismo? Se cortará el juego y se armará el podio con los puntos actuales.")) {
+                ws.send(JSON.stringify({ "accion": "FORZAR_FIN_TRIVIA" }));
+            }
+        }
+
         function alternarVistasFinales() {
             const podio = document.getElementById("ranking-seccion");
             const stats = document.getElementById("estadisticas-finales");
+            const machete = document.getElementById("panel-machete-respuestas");
             const btn = document.getElementById("btn-alternar-vista");
 
+            machete.style.display = "none"; // Cierra el machete por las dudas
             if (podio.style.display === "none") {
                 podio.style.display = "block";
                 stats.style.display = "none";
@@ -388,6 +443,31 @@
                 stats.style.display = "block";
                 btn.innerText = "Ver Podio de Jugadores 🏆";
             }
+        }
+
+        // 📋 DESPLIEGUE DEL MACHETE DOCENTE (Bug 3)
+        function mostrarMachetePreguntas() {
+            const machetePanel = document.getElementById("panel-machete-respuestas");
+            const lista = document.getElementById("lista-machete-preguntas");
+            
+            if (machetePanel.style.display === "block") {
+                machetePanel.style.display = "none";
+                return;
+            }
+
+            lista.innerHTML = ""; // Limpieza
+            preguntasPasadas.forEach((p, idx) => {
+                lista.innerHTML += `
+                    <div style="background: #111; padding: 12px; border-radius: 8px; margin-bottom: 10px; border-left: 5px solid #00fa9a;">
+                        <p style="margin: 0 0 5px 0; font-weight: bold; color: #ffeb3b;">❓ Pregunta ${idx + 1}: ${p.enunciado}</p>
+                        <p style="margin: 3px 0; font-size: 14px; color: #4CAF50;"><b>Correcta:</b> Opcion ${p.correcta} (${p.opcion_texto})</p>
+                        <p style="margin: 3px 0; font-size: 14px; color: #aaa; font-style: italic;"><b>💡 Justificación:</b> ${p.justificacion}</p>
+                    </div>
+                `;
+            });
+            machetePanel.style.display = "block";
+            // Scroll automático para que el profe lo vea sin dar vueltas
+            machetePanel.scrollIntoView({ behavior: 'smooth' });
         }
     </script>
 </body>

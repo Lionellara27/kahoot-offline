@@ -4,4 +4,13 @@ __pycache__/
 venv/
 .venv
 .vscode/
+
+# Base de datos y sus archivos temporales de SQLite 
 kahoot.db
+*.db-journal
+*.db-wal
+*.db-shm
+
+# Archivos basura del sistema operativo 
+.DS_Store
+Thumbs.db
