@@ -30,7 +30,6 @@ with open("templates/admin_eliminar.html", "r", encoding="utf-8") as f:
     HTML_ELIMINAR = f.read()
 
 # GESTOR DE CONEXIONES Y LÓGICA CENTRAL DEL JUEGO (PERSISTENTE)
-# GESTOR DE CONEXIONES Y LÓGICA CENTRAL DEL JUEGO (PERSISTENTE)
 class AdministradorJuego:
     def __init__(self):
         self.host_socket: WebSocket = None
@@ -50,6 +49,19 @@ class AdministradorJuego:
         # Contadores globales para el gráfico final
         self.global_correctos = 0
         self.global_incorrectos = 0
+
+    def limpiar_sala(self):
+        """ 🧹 Método escoba: Resetea puntos a 0 pero mantiene a los pibes en el aula """
+        # A todos los que jugaron, los volvemos a poner en 0
+        for nombre in self.ranking:
+            self.ranking[nombre] = {"puntos": 0, "tiempo_total": 0.0}
+            
+        self.indice_pregunta_actual = -1
+        self.votos_correctos = 0
+        self.votos_incorrectos = 0
+        self.global_correctos = 0
+        self.global_incorrectos = 0
+        print("🧹 ¡SALA LIMPIA! Puntos reseteados a 0 para el siguiente nivel.")
 
     async def conectar_host(self, websocket: WebSocket):
         await websocket.accept()
@@ -216,19 +228,6 @@ class AdministradorJuego:
         await self.host_socket.send_text(json.dumps({"evento": "ACTUALIZAR_RANKING", "ranking": ranking_limpio}))
 
 controlador = AdministradorJuego()
-
-def limpiar_sala(self):
-        """ 🧹 Método escoba: Resetea puntos a 0 pero mantiene a los pibes en el aula """
-        # A todos los que jugaron, los volvemos a poner en 0
-        for nombre in self.ranking:
-            self.ranking[nombre] = {"puntos": 0, "tiempo_total": 0.0}
-            
-        self.indice_pregunta_actual = -1
-        self.votos_correctos = 0
-        self.votos_incorrectos = 0
-        self.global_correctos = 0
-        self.global_incorrectos = 0
-        print("🧹 ¡SALA LIMPIA! Puntos reseteados a 0 para el siguiente nivel.")
 
 # =====================================================================
 # 🛡️ CAPA DE SEGURIDAD Y PANEL DOCENTE CENTRAL

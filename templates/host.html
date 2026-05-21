@@ -420,7 +420,27 @@
         };
 
         function siguientePregunta() {
-            ws.send(JSON.stringify({ "accion": "SIGUIENTE_PREGUNTA" }));
+            const btnHost = document.getElementById("btn-accion-host");
+
+            // Escenario 1: El tiempo no terminó (o sea, nadie vio la correcta todavía)
+            if (tiempoRestanteHost > 0) {
+                clearInterval(temporizadorHost); // Frenamos el reloj
+                tiempoRestanteHost = 0;
+                
+                const displayHost = document.getElementById("timer-host");
+                displayHost.innerText = "⏰ ¡FIN!";
+                displayHost.style.color = "#ff5555";
+                
+                // ¡FORZAMOS EL REVELADO PARA QUE LOS CELULARES GUARDEN LA RESPUESTA!
+                ws.send(JSON.stringify({ "accion": "REVELAR_RESULTADOS" }));
+                
+                // Cambiamos el texto del botón
+                btnHost.innerText = "Siguiente Pregunta ➡️";
+                
+            } else {
+                // Escenario 2: El tiempo ya es 0 (las respuestas ya se revelaron). Avanzamos de verdad.
+                ws.send(JSON.stringify({ "accion": "SIGUIENTE_PREGUNTA" }));
+            }
         }
 
         // 🛑 BOTÓN ROJO DE EMERGENCIA (Bug 2)

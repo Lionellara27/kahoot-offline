@@ -104,6 +104,7 @@
         <img src="/static/unrn.png" alt="Logo UNRN" style="height: 100px; width: auto; border-radius: 4px; opacity: 0.9;">
     </div>
 
+    s
     <script>
         let ws;
         let nombreJugador = "";
@@ -111,7 +112,7 @@
         let tiempoRestantePregunta = 20;
         let miVoto = ""; 
         
-        // 🧠 HISTORIAL GLOBAL: Guarda la info para que el alumno repase al final
+        // 🧠 HISTORIAL GLOBAL
         let historialPreguntas = [];
         let preguntaActualData = null;
 
@@ -127,6 +128,7 @@
             ws = new WebSocket(`ws://${window.location.host}/ws/jugador?nombre=${encodeURIComponent(nombreJugador)}`);
 
             ws.onopen = () => {
+                console.log("✅ WebSocket conectado.");
                 document.getElementById("pantalla-login").classList.add("oculto");
                 document.getElementById("nombre-usuario").innerText = nombreJugador;
                 document.getElementById("pantalla-espera").classList.remove("oculto");
@@ -134,20 +136,18 @@
 
             ws.onmessage = (event) => {
                 const datos = JSON.parse(event.data);
+                console.log("📥 Evento recibido desde el servidor:", datos.evento);
 
-                // 🚨 ESCUCHA EL REINICIO DESDE EL ADMIN (Tu solución elegante)
+                // 🚨 LOBBY ABIERTO
                 if (datos.evento === "LOBBY_ABIERTO") {
                     const btnRepetir = document.getElementById("btn-reproducir");
-                    if (btnRepetir) {
-                        btnRepetir.style.display = "block"; // Habilita el botón de jugar de nuevo
-                    }
+                    if (btnRepetir) btnRepetir.style.display = "block"; 
                 }
 
-                // 1️⃣ EVENTO: NUEVA PREGUNTA
+                // 1️⃣ NUEVA PREGUNTA
                 if (datos.evento === "NUEVA_PREGUNTA") {
                     miVoto = ""; 
                     
-                    // Guardamos la info base de la pregunta que está corriendo
                     preguntaActualData = {
                         enunciado: datos.enunciado,
                         opcion_a: datos.opcion_a,
@@ -171,23 +171,22 @@
                     display.style.color = "#ffeb3b"; 
                     
                     document.getElementById("estado-voto").innerText = "";
-                    document.getElementById("bloque-didactico-jugador").style.display = "none"; // Oculta la de la ronda anterior
-                    
-                    activarBotones(true);
+                    document.getElementById("bloque-didactico-jugador").style.display = "none";
+                    
+                    activarBotones(true);
                     iniciarCuentaRegresivaPregunta();
                 }
                 
-                // 2️⃣ EVENTO: REVELAR CORRECTA
+                // 2️⃣ REVELAR CORRECTA
                 if (datos.evento === "REVELAR_CORRECTA") {
                     clearInterval(temporizadorPregunta);
                     activarBotones(false);
                     const divEstado = document.getElementById("estado-voto");
                     
-                    // Estructuramos la justificación por si viene vacía de la DB
                     let textoJustificacion = datos.justificacion || "Sin justificación adicional.";
                     let textoOpcionCorrecta = datos.correcta === "A" ? preguntaActualData.opcion_a : preguntaActualData.opcion_b;
 
-                    // Pusheamos al historial local para la revisión de fin de juego
+                    // 💾 GUARDADO BLINDADO
                     historialPreguntas.push({
                         enunciado: preguntaActualData.enunciado,
                         votoAlumno: miVoto,
@@ -196,7 +195,12 @@
                         esCorrecto: miVoto === datos.correcta,
                         justificacion: textoJustificacion
                     });
+                    
+                    // Aseguramos que se guarde en el "disco" del navegador
+                    sessionStorage.setItem('miHistorial', JSON.stringify(historialPreguntas));
+                    console.log("💾 Historial guardado. Total:", historialPreguntas.length);
 
+                    // Mensajes visuales
                     if (miVoto === "") {
                         divEstado.innerHTML = `⏰ ¡TIEMPO AGOTADO!<br><span style="color:#aaa; font-size:14px;">No llegaste a responder. La correcta era la ${datos.correcta}</span>`;
                         divEstado.style.color = "#ff5555";
@@ -205,22 +209,21 @@
                         divEstado.style.color = "#4CAF50";
                     } else {
                         divEstado.innerHTML = `❌ INCORRECTO<br><span style="color:#aaa; font-size:14px;">La correcta era la ${datos.correcta}</span>`;
-                        divEstado.style.color = "#ff5555";
-                    }
+                        divEstado.style.color = "#ff5555";
+                    }
 
-                    // 🎯 MOSTRAR LA JUSTIFICACIÓN EN PANTALLA
-                    document.getElementById("texto-justificacion-jugador").innerText = textoJustificacion;
-                    document.getElementById("bloque-didactico-jugador").style.display = "block";
-                    document.getElementById("bloque-didactico-jugador").scrollIntoView({ behavior: 'smooth' });
-                }
+                    document.getElementById("texto-justificacion-jugador").innerText = textoJustificacion;
+                    document.getElementById("bloque-didactico-jugador").style.display = "block";
+                    document.getElementById("bloque-didactico-jugador").scrollIntoView({ behavior: 'smooth' });
+                }
 
-                // 3️⃣ EVENTO: JUEGO TERMINADO
+                // 3️⃣ JUEGO TERMINADO
                 if (datos.evento === "JUEGO_TERMINADO") {
                     clearInterval(temporizadorPregunta); 
                     
                     document.getElementById("pantalla-juego").classList.add("oculto");
                     document.getElementById("pantalla-final").classList.remove("oculto");
-                    document.getElementById("btn-reproducir").style.display = "none"; // Nace oculto hasta el broadcast
+                    document.getElementById("btn-reproducir").style.display = "none";
                     
                     const puntos = datos.puntos || 0;
                     let contenedorHTML = "";
@@ -249,21 +252,25 @@
             };
         }
 
-        // FUNCIONES DE CONTROL DE PANTALLAS NUEVAS
+        // 📋 MOSTRAR REVISIÓN
         function mostrarRevision() {
             document.getElementById("pantalla-final").classList.add("oculto");
             document.getElementById("pantalla-revision").classList.remove("oculto");
             
-            const contenedorLista = document.getElementById("lista-revision-preguntas");
-            contenedorLista.innerHTML = ""; // Limpiamos
+            const guardado = sessionStorage.getItem('miHistorial');
+            const listaParaMostrar = guardado ? JSON.parse(guardado) : historialPreguntas;
+            
+            console.log("📊 Mostrando revisión. Elementos a renderizar:", listaParaMostrar.length);
 
-            if (historialPreguntas.length === 0) {
-                contenedorLista.innerHTML = `<p style="color:#aaa;">No hay registro de preguntas contestadas.</p>`;
+            const contenedorLista = document.getElementById("lista-revision-preguntas");
+            contenedorLista.innerHTML = ""; 
+
+            if (listaParaMostrar.length === 0) {
+                contenedorLista.innerHTML = `<p style="color:#aaa; text-align:center; padding: 20px;">No hay registro de preguntas contestadas.</p>`;
                 return;
             }
 
-            // Renderizado dinámico del array en memoria
-            historialPreguntas.forEach((item, index) => {
+            listaParaMostrar.forEach((item, index) => {
                 const tarjeta = document.createElement("div");
                 tarjeta.className = `tarjeta-revision ${item.esCorrecto ? 'correcta' : ''}`;
                 
@@ -272,7 +279,7 @@
                         Pregunta ${index + 1}: ${item.esCorrecto ? 'Correcta' : 'Incorrecta'}
                     </div>
                     <p style="margin: 5px 0; font-weight: bold; font-size:15px;">${item.enunciado}</p>
-                    <p style="margin: 4px 0; font-size: 13px; color: #bbb;">🎯 Tu respuesta: <span style="color:${item.esCorrecto ? '#4CAF50' : '#ff5555'}">${item.votoAlumno || 'Ninguna (Tiempo Agotado)'}</span></p>
+                    <p style="margin: 4px 0; font-size: 13px; color: #bbb;">🎯 Tu respuesta: <span style="color:${item.esCorrecto ? '#4CAF50' : '#ff5555'}">${item.votoAlumno || 'Ninguna (Tiempo agotado)'}</span></p>
                     <p style="margin: 4px 0; font-size: 13px; color: #bbb;">✅ Respuesta correcta: <span style="color:#4CAF50">${item.correctaLetra} (${item.correctaTexto})</span></p>
                     <div style="margin-top: 10px; background: #2d2d2d; padding: 8px; border-radius: 6px; font-size: 13px; color: #ff9800; border: 1px dashed #555;">
                         <strong>💡 Justificación:</strong> ${item.justificacion}
@@ -289,15 +296,16 @@
 
         function salirAlLogin() {
             if (ws) ws.close();
-            historialPreguntas = []; // Reset total
-            document.getElementById("input-nombre").value = "";
+            historialPreguntas = []; 
+            sessionStorage.removeItem('miHistorial'); // 🧹 LIMPIEZA CLAVE
+            document.getElementById("input-nombre").value = "";   
             document.getElementById("pantalla-final").classList.add("oculto");
             document.getElementById("pantalla-login").classList.remove("oculto");
         }
 
         function jugarDeNuevo() {
-            // Mandamos de vuelta al usuario a la pantalla de carga (esperando el botón del Profe)
-            historialPreguntas = []; // Resetea historial viejo
+            historialPreguntas = []; 
+            sessionStorage.removeItem('miHistorial'); // 🧹 LIMPIEZA CLAVE
             document.getElementById("pantalla-final").classList.add("oculto");
             document.getElementById("pantalla-espera").classList.remove("oculto");
         }
@@ -327,11 +335,10 @@
         }
 
         function enviarVoto(opcion) {
-            if (ws && ws.readyState === WebSocket.OPEN) {
-                miVoto = opcion; 
-                ws.send(opcion);
-                // ❌ ACÁ ESTABA EL BUG: Borramos el clearInterval para que el reloj no se congele
-                activarBotones(false);
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                miVoto = opcion; 
+                ws.send(opcion);
+                activarBotones(false);
                 document.getElementById("estado-voto").innerText = `📥 Enviaste la opción ${opcion}. ¡Esperá el resultado!`;
                 document.getElementById("estado-voto").style.color = "#00ffaa";
             }
