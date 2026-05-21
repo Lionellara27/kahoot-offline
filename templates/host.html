@@ -176,10 +176,20 @@
             <h3 style="color: #ffeb3b; text-align: center; margin-top: 0;">📖 REPASO DIDÁCTICO DE PREGUNTAS</h3>
             <div id="lista-machete-preguntas"></div>
         </div>
+        <div id="contenedor-modal" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); z-index: 9999; display: none; justify-content: center; align-items: center; backdrop-filter: blur(4px);">
+        <div style="background: #222; border: 2px solid #e74c3c; padding: 30px; border-radius: 12px; max-width: 450px; text-align: center; color: white; box-shadow: 0px 0px 20px rgba(231, 76, 60, 0.4);">
+            <h3 style="color: #e74c3c; margin-top: 0; font-size: 24px; letter-spacing: 1px;">⚠️ ATENCIÓN</h3>
+            <p id="modal-mensaje" style="font-size: 18px; line-height: 1.4; color: #eee; margin-bottom: 10px; font-weight: bold;"></p>
+            <p id="modal-submensaje" style="font-size: 14px; color: #aaa; margin-bottom: 25px;"></p>
+            
+            <div style="display: flex; justify-content: space-around; gap: 15px;">
+                <button type="button" onclick="cerrarModal()" style="background: #555; color: white; padding: 12px 20px; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; width: 100%; transition: 0.2s;">Cancelar</button>
+                <button type="button" onclick="ejecutarAccionModal()" style="background: #e74c3c; color: white; padding: 12px 20px; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; width: 100%; transition: 0.2s;">Sí, continuar</button>
+            </div>
+        </div>
     </div> 
 
-
-<script>
+    <script>
         const urlParams = new URLSearchParams(window.location.search);
         const nivel = urlParams.get('nivel') || 1;
 
@@ -192,9 +202,35 @@
         let votosCorrectosEnVivo = 0;
         let votosIncorrectosEnVivo = 0;
 
-        // 🧠 MEMORIA LOCAL DEL HOST: Guarda las preguntas que van pasando para armar el machete final
+        // 🧠 MEMORIA LOCAL DEL HOST
         let preguntasPasadas = [];
         let cantidadJugadoresEnLobby = 0;
+
+        // ==========================================
+        // 🛑 MOTOR DEL CARTEL GUAPO (MODAL)
+        // ==========================================
+        let accionModalPendiente = null;
+
+        function abrirModalPersonalizado(mensaje, submensaje, funcionConfirmar) {
+            document.getElementById("modal-mensaje").innerText = mensaje;
+            document.getElementById("modal-submensaje").innerText = submensaje;
+            accionModalPendiente = funcionConfirmar;
+            
+            // Usamos flex para centrar el cartel flotante
+            document.getElementById("contenedor-modal").style.display = "flex"; 
+        }
+
+        function cerrarModal() {
+            document.getElementById("contenedor-modal").style.display = "none";
+            accionModalPendiente = null;
+        }
+
+        function ejecutarAccionModal() {
+            if (accionModalPendiente) {
+                accionModalPendiente(); // Ejecuta la acción guardada
+            }
+            cerrarModal(); // Cierra el cartel
+        }
 
         // =====================================================================
         // CONTROLADOR DINÁMICO DE LAS FLECHAS DE NIVELES
@@ -203,45 +239,51 @@
             let nivelInt = parseInt(nivel);
             document.getElementById("nav-display-nivel").innerText = `(NIVEL ${nivelInt})`;
 
-            const respuesta = await fetch("/admin/api/niveles");
-            const nivelesExistentes = await respuesta.json(); 
+            try {
+                const respuesta = await fetch("/admin/api/niveles");
+                const nivelesExistentes = await respuesta.json(); 
 
-            const indiceActual = nivelesExistentes.indexOf(nivelInt);
-            const btnRetroceder = document.getElementById("nav-retroceder");
-            const btnAvanzar = document.getElementById("nav-avanzar");
+                const indiceActual = nivelesExistentes.indexOf(nivelInt);
+                const btnRetroceder = document.getElementById("nav-retroceder");
+                const btnAvanzar = document.getElementById("nav-avanzar");
 
-            // Lógica para el botón Retroceder con Advertencia (Bug 4)
-            if (indiceActual <= 0) {
-                btnRetroceder.disabled = true;
-            } else {
-                btnRetroceder.onclick = () => {
-                    if (validarCambioNivel()) {
-                        const anterior = nivelesExistentes[indiceActual - 1];
-                        window.location.href = `/host?nivel=${anterior}`;
-                    }
-                };
-            }
+                // Lógica unificada de mensaje para cambio de nivel
+                const msjNiveles = "¿Estás seguro de cambiar de nivel?";
+                const subMsjNiveles = "Hay alumnos en el lobby esperando. Si cambiás, la sala se cerrará y deberán conectarse de nuevo.";
 
-            // Lógica para el botón Avanzar con Advertencia (Bug 4)
-            if (indiceActual === -1 || indiceActual === nivelesExistentes.length - 1) {
-                btnAvanzar.disabled = true;
-            } else {
-                btnAvanzar.onclick = () => {
-                    if (validarCambioNivel()) {
-                        const siguiente = nivelesExistentes[indiceActual + 1];
-                        window.location.href = `/host?nivel=${siguiente}`;
-                    }
-                };
+                // Lógica para el botón Retroceder
+                if (indiceActual <= 0) {
+                    btnRetroceder.disabled = true;
+                } else {
+                    btnRetroceder.onclick = () => {
+                        if (cantidadJugadoresEnLobby > 0) {
+                            abrirModalPersonalizado(msjNiveles, subMsjNiveles, () => {
+                                window.location.href = `/host?nivel=${nivelesExistentes[indiceActual - 1]}`;
+                            });
+                        } else {
+                            window.location.href = `/host?nivel=${nivelesExistentes[indiceActual - 1]}`;
+                        }
+                    };
+                }
+
+                // Lógica para el botón Avanzar
+                if (indiceActual === -1 || indiceActual === nivelesExistentes.length - 1) {
+                    btnAvanzar.disabled = true;
+                } else {
+                    btnAvanzar.onclick = () => {
+                        if (cantidadJugadoresEnLobby > 0) {
+                            abrirModalPersonalizado(msjNiveles, subMsjNiveles, () => {
+                                window.location.href = `/host?nivel=${nivelesExistentes[indiceActual + 1]}`;
+                            });
+                        } else {
+                            window.location.href = `/host?nivel=${nivelesExistentes[indiceActual + 1]}`;
+                        }
+                    };
+                }
+            } catch(error) {
+                console.error("Error cargando los niveles: ", error);
             }
         });
-
-        // Función de seguridad para el Lobby (Bug 4)
-        function validarCambioNivel() {
-            if (cantidadJugadoresEnLobby > 0) {
-                return confirm("⚠️ ¿Estás seguro de realizar esta acción? Hay alumnos en el lobby esperando. Si cambiás de nivel, la sala se reiniciará y los pibes deberán re-conectarse.");
-            }
-            return true;
-        }
 
         // =====================================================================
         // RECEPCIÓN DE EVENTOS WEBSOCKET
@@ -249,9 +291,7 @@
         ws.onmessage = (event) => {
             const datos = JSON.parse(event.data);
 
-            // 1. Cuando el backend nos manda una nueva pregunta
             if (datos.evento === "MOSTRAR_PREGUNTA") {
-                // 🛑 CORTE DE NAVEGACIÓN (Bug 2): Ponemos las flechas en gris cuando inicia la trivia
                 document.getElementById("nav-retroceder").disabled = true;
                 document.getElementById("nav-avanzar").disabled = true;
 
@@ -276,7 +316,6 @@
                 votosCorrectosEnVivo = 0;
                 votosIncorrectosEnVivo = 0;
 
-                // Guardamos en la memoria del host para el machete pedagógico final (Bug 3)
                 if (!preguntasPasadas.some(p => p.enunciado === datos.enunciado)) {
                     preguntasPasadas.push({
                         enunciado: datos.enunciado,
@@ -338,15 +377,12 @@
                 votosIncorrectosEnVivo = datos.incorrectos;
             }
 
-            // Cuando el backend actualiza la lista de conectados o puntos
             if (datos.evento === "ACTUALIZAR_RANKING") {
                 const tbody = document.getElementById("cuerpo-tabla");
-                const thParticipante = document.getElementById("th-participante"); // Vamos a ponerle un ID al TH
+                const thParticipante = document.getElementById("th-participante"); 
                 tbody.innerHTML = ""; 
                 
-                // Mapeamos cuántos alumnos hay acoplados en el lobby actual
                 cantidadJugadoresEnLobby = datos.ranking.length;
-                
                 document.getElementById("th-participante").innerText = `Participante (${cantidadJugadoresEnLobby})`;
 
                 datos.ranking.forEach((jugador, indice) => {
@@ -366,7 +402,6 @@
                 });
             }
             
-            // EL FINAL: Capturamos el cierre definitivo (Bug 3 optimizado con Sin Responder)
             if (datos.evento === "JUEGO_TERMINADO") {
                 clearInterval(temporizadorHost);
                 document.getElementById("timer-host").innerText = "🏁";
@@ -380,27 +415,23 @@
                 document.getElementById("titulo-ranking").innerText = "🏆 PODIO FINAL";
                 document.getElementById("ranking-seccion").style.display = "block";
                 
-                // Habilitamos los dos botones de cierre solicitados
                 document.getElementById("btn-alternar-vista").style.display = "inline-block";
                 document.getElementById("btn-machete-docente").style.display = "inline-block";
 
-                // Apagamos los controles de arriba de forma definitiva
                 const btn = document.getElementById("btn-accion-host");
                 btn.disabled = true;
                 btn.innerText = "Taller Finalizado 🔒";
                 document.getElementById("btn-finalizar-emergencia").disabled = true;
 
-                // 📊 CÁLCULO DE GRÁFICO TRIPLE (Bug 3)
                 let ok = datos.total_ok || 0;
                 let err = datos.total_err || 0;
-                // Calculamos los Sin Responder restando las respuestas al total general de interacciones
                 let totalAlumnos = cantidadJugadoresEnLobby;
                 let sr = datos.total_sr || Math.max(0, (totalAlumnos * preguntasPasadas.length) - (ok + err));
                 let totalMuestras = ok + err + sr;
                 
                 document.getElementById("txt-tot-ok").innerText = ok;
                 document.getElementById("txt-tot-err").innerText = err;
-                document.getElementById("txt-tot-sr").innerText = sr; // Render en la interfaz
+                document.getElementById("txt-tot-sr").innerText = sr; 
                 document.getElementById("txt-tot-votos").innerText = totalAlumnos;
 
                 let pOk = 0;
@@ -413,18 +444,20 @@
                     pSr = 100 - (pOk + pErr);
                 }
                 
-                // 🎨 Inyección del gráfico de torta de 3 colores (Verde, Rojo y Naranja para SR)
                 document.getElementById("mi-grafico-torta").style.background = 
                     `conic-gradient(#4CAF50 0% ${pOk}%, #e21b3c ${pOk}% ${pOk + pErr}%, #ff9800 ${pOk + pErr}% 100%)`;
             }
         };
 
+        // =====================================================================
+        // FUNCIONES DE CONTROL DE BOTONES
+        // =====================================================================
         function siguientePregunta() {
             const btnHost = document.getElementById("btn-accion-host");
 
             // Escenario 1: El tiempo no terminó (o sea, nadie vio la correcta todavía)
             if (tiempoRestanteHost > 0) {
-                clearInterval(temporizadorHost); // Frenamos el reloj
+                clearInterval(temporizadorHost);
                 tiempoRestanteHost = 0;
                 
                 const displayHost = document.getElementById("timer-host");
@@ -434,20 +467,23 @@
                 // ¡FORZAMOS EL REVELADO PARA QUE LOS CELULARES GUARDEN LA RESPUESTA!
                 ws.send(JSON.stringify({ "accion": "REVELAR_RESULTADOS" }));
                 
-                // Cambiamos el texto del botón
                 btnHost.innerText = "Siguiente Pregunta ➡️";
                 
             } else {
-                // Escenario 2: El tiempo ya es 0 (las respuestas ya se revelaron). Avanzamos de verdad.
+                // Escenario 2: El tiempo ya es 0. Avanzamos de verdad.
                 ws.send(JSON.stringify({ "accion": "SIGUIENTE_PREGUNTA" }));
             }
         }
 
         // 🛑 BOTÓN ROJO DE EMERGENCIA (Bug 2)
         function forzarFinTrivia() {
-            if (confirm("⚠️ ¿Querés finalizar la trivia en seco ahora mismo? Se cortará el juego y se armará el podio con los puntos actuales.")) {
-                ws.send(JSON.stringify({ "accion": "FORZAR_FIN_TRIVIA" }));
-            }
+            abrirModalPersonalizado(
+                "¿Querés finalizar la trivia en seco ahora mismo?",
+                "Se cortará el juego y se armará el podio con los puntos actuales.",
+                () => {
+                    ws.send(JSON.stringify({ "accion": "FORZAR_FIN_TRIVIA" }));
+                }
+            );
         }
 
         function alternarVistasFinales() {
@@ -456,7 +492,7 @@
             const machete = document.getElementById("panel-machete-respuestas");
             const btn = document.getElementById("btn-alternar-vista");
 
-            machete.style.display = "none"; // Cierra el machete por las dudas
+            machete.style.display = "none"; 
             if (podio.style.display === "none") {
                 podio.style.display = "block";
                 stats.style.display = "none";
@@ -468,7 +504,6 @@
             }
         }
 
-        // 📋 DESPLIEGUE DEL MACHETE DOCENTE (Bug 3)
         function mostrarMachetePreguntas() {
             const machetePanel = document.getElementById("panel-machete-respuestas");
             const lista = document.getElementById("lista-machete-preguntas");
@@ -478,7 +513,7 @@
                 return;
             }
 
-            lista.innerHTML = ""; // Limpieza
+            lista.innerHTML = ""; 
             preguntasPasadas.forEach((p, idx) => {
                 lista.innerHTML += `
                     <div style="background: #111; padding: 12px; border-radius: 8px; margin-bottom: 10px; border-left: 5px solid #00fa9a;">
@@ -489,23 +524,29 @@
                 `;
             });
             machetePanel.style.display = "block";
-            // Scroll automático para que el profe lo vea sin dar vueltas
             machetePanel.scrollIntoView({ behavior: 'smooth' });
         }
+
         // 🧹 ORDEN DE DESTRUCCIÓN DEL "EFECTO PEPE"
         function volverYLimpiar() {
-            if (ws && ws.readyState === WebSocket.OPEN) {
-                // Le avisamos al backend que destruya los puntos
-                ws.send(JSON.stringify({ "accion": "CERRAR_SALA" }));
+            const accionVolver = () => {
+                if (ws && ws.readyState === WebSocket.OPEN) {
+                    ws.send(JSON.stringify({ "accion": "CERRAR_SALA" }));
+                }
+                document.body.style.opacity = "0.5"; 
+                setTimeout(() => { window.location.href = "/panel"; }, 500);
+            };
+
+            // Solo tira alerta si hay gente jugando, si el lobby está vacío vuelve directo
+            if (cantidadJugadoresEnLobby > 0) {
+                abrirModalPersonalizado(
+                    "¿Estás seguro de volver al selector de niveles?",
+                    "Hay alumnos conectados en este momento. La sala se cerrará y se borrarán los puntajes.",
+                    accionVolver
+                );
+            } else {
+                accionVolver();
             }
-            
-            // Ponemos la pantalla medio gris para que el profe sepa que está cargando
-            document.body.style.opacity = "0.5"; 
-            
-            // ⏱️ AUMENTAMOS EL TIEMPO: Le damos medio segundo para que el mensaje viaje seguro
-            setTimeout(() => { 
-                window.location.href = "/panel"; 
-            }, 500);
         }
     </script>
 </body>
