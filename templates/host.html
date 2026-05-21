@@ -85,7 +85,7 @@
                         <img src="/static/logo.jpg" alt="Logo ESFA" style="height: 55px; width: auto; border-radius: 5px;">
                         <img src="/static/unrn.png" alt="Logo UNRN" style="height: 50px; width: auto; border-radius: 5px;">
                     </div>
-                    <a href="/panel" style="display: inline-block; background: #c0392b; color: white; padding: 6px 14px; border-radius: 20px; text-decoration: none; font-size: 13px; font-weight: bold; border: 1px solid #e74c3c;">
+                    <a href="#" onclick="volverYLimpiar()" style="display: inline-block; background: #c0392b; color: white; padding: 6px 14px; border-radius: 20px; text-decoration: none; font-size: 13px; font-weight: bold; border: 1px solid #e74c3c;">
                         ↩️ Volver al selector de niveles
                     </a>
                 </div>
@@ -142,7 +142,7 @@
                 <thead>
                     <tr>
                         <th style="width: 10%">Puesto</th>
-                        <th style="width: 50%">Participante</th>
+                        <th id="th-participante" style="width: 50%">Participante</th>
                         <th style="width: 20%">Puntaje</th>
                         <th style="width: 20%">Tiempo Usado (s)</th>
                     </tr>
@@ -341,11 +341,14 @@
             // Cuando el backend actualiza la lista de conectados o puntos
             if (datos.evento === "ACTUALIZAR_RANKING") {
                 const tbody = document.getElementById("cuerpo-tabla");
+                const thParticipante = document.getElementById("th-participante"); // Vamos a ponerle un ID al TH
                 tbody.innerHTML = ""; 
                 
                 // Mapeamos cuántos alumnos hay acoplados en el lobby actual
                 cantidadJugadoresEnLobby = datos.ranking.length;
                 
+                document.getElementById("th-participante").innerText = `Participante (${cantidadJugadoresEnLobby})`;
+
                 datos.ranking.forEach((jugador, indice) => {
                     let medalla = indice + 1;
                     if (medalla === 1) medalla = "🥇";
@@ -468,6 +471,21 @@
             machetePanel.style.display = "block";
             // Scroll automático para que el profe lo vea sin dar vueltas
             machetePanel.scrollIntoView({ behavior: 'smooth' });
+        }
+        // 🧹 ORDEN DE DESTRUCCIÓN DEL "EFECTO PEPE"
+        function volverYLimpiar() {
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                // Le avisamos al backend que destruya los puntos
+                ws.send(JSON.stringify({ "accion": "CERRAR_SALA" }));
+            }
+            
+            // Ponemos la pantalla medio gris para que el profe sepa que está cargando
+            document.body.style.opacity = "0.5"; 
+            
+            // ⏱️ AUMENTAMOS EL TIEMPO: Le damos medio segundo para que el mensaje viaje seguro
+            setTimeout(() => { 
+                window.location.href = "/panel"; 
+            }, 500);
         }
     </script>
 </body>

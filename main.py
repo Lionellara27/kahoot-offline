@@ -217,6 +217,19 @@ class AdministradorJuego:
 
 controlador = AdministradorJuego()
 
+def limpiar_sala(self):
+        """ 🧹 Método escoba: Resetea puntos a 0 pero mantiene a los pibes en el aula """
+        # A todos los que jugaron, los volvemos a poner en 0
+        for nombre in self.ranking:
+            self.ranking[nombre] = {"puntos": 0, "tiempo_total": 0.0}
+            
+        self.indice_pregunta_actual = -1
+        self.votos_correctos = 0
+        self.votos_incorrectos = 0
+        self.global_correctos = 0
+        self.global_incorrectos = 0
+        print("🧹 ¡SALA LIMPIA! Puntos reseteados a 0 para el siguiente nivel.")
+
 # =====================================================================
 # 🛡️ CAPA DE SEGURIDAD Y PANEL DOCENTE CENTRAL
 # =====================================================================
@@ -519,6 +532,10 @@ async def ws_host(websocket: WebSocket, nivel: int = 1): # 🎯 Recibe el nivel 
                 
             elif datos.get("accion") == "REVELAR_RESULTADOS":
                 await controlador.revelar_resultados()
+
+            # 🧹 ACÁ ESTÁ LA MAGIA PARA EL "EFECTO PEPE":
+            elif datos.get("accion") == "CERRAR_SALA":
+                controlador.limpiar_sala()
                 
             # 🎯 BUG 2: ATRACHAMOS EL BOTÓN ROJO DE EMERGENCIA DEL PROFE
             elif datos.get("accion") == "FORZAR_FIN_TRIVIA":

@@ -75,7 +75,13 @@
             </div>
             
             <p style="margin-top: 25px; font-size: 16px; color: #00ffaa; font-weight: bold;" id="estado-voto"></p>
-        </div> 
+
+                        <div id="bloque-didactico-jugador" style="display: none; margin-top: 20px; text-align: left; background: #2a2a2a; border: 1px solid #ff9800; border-radius: 8px; padding: 15px; box-shadow: 0 4px 6px rgba(0,0,0,0.3);">
+                <div style="font-size: 16px; color: #fff; line-height: 1.4;">
+                    💡 <span id="texto-justificacion-jugador"></span>
+                </div>
+            </div>
+        </div> 
 
         <div id="pantalla-final" class="oculto">
             <div id="contenido-puntos-final"></div>
@@ -165,8 +171,9 @@
                     display.style.color = "#ffeb3b"; 
                     
                     document.getElementById("estado-voto").innerText = "";
-                    
-                    activarBotones(true);
+                    document.getElementById("bloque-didactico-jugador").style.display = "none"; // Oculta la de la ronda anterior
+                    
+                    activarBotones(true);
                     iniciarCuentaRegresivaPregunta();
                 }
                 
@@ -198,9 +205,14 @@
                         divEstado.style.color = "#4CAF50";
                     } else {
                         divEstado.innerHTML = `❌ INCORRECTO<br><span style="color:#aaa; font-size:14px;">La correcta era la ${datos.correcta}</span>`;
-                        divEstado.style.color = "#ff5555";
-                    }
-                }
+                        divEstado.style.color = "#ff5555";
+                    }
+
+                    // 🎯 MOSTRAR LA JUSTIFICACIÓN EN PANTALLA
+                    document.getElementById("texto-justificacion-jugador").innerText = textoJustificacion;
+                    document.getElementById("bloque-didactico-jugador").style.display = "block";
+                    document.getElementById("bloque-didactico-jugador").scrollIntoView({ behavior: 'smooth' });
+                }
 
                 // 3️⃣ EVENTO: JUEGO TERMINADO
                 if (datos.evento === "JUEGO_TERMINADO") {
@@ -315,11 +327,11 @@
         }
 
         function enviarVoto(opcion) {
-            if (ws && ws.readyState === WebSocket.OPEN) {
-                miVoto = opcion; 
-                ws.send(opcion);
-                clearInterval(temporizadorPregunta);
-                activarBotones(false);
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                miVoto = opcion; 
+                ws.send(opcion);
+                // ❌ ACÁ ESTABA EL BUG: Borramos el clearInterval para que el reloj no se congele
+                activarBotones(false);
                 document.getElementById("estado-voto").innerText = `📥 Enviaste la opción ${opcion}. ¡Esperá el resultado!`;
                 document.getElementById("estado-voto").style.color = "#00ffaa";
             }
